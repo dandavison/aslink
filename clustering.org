@@ -1,0 +1,145 @@
+#+startup: hideblocks
+
+* Clustering sequence reads
+  The output from Peter & David's Selexa pipeline is a file containing
+  around 5 x 10^6 sequence reads, each about 20-80 bp long. These
+  correspond to multiple genomic loci in multiple individuals. A given
+  locus in a given individual may have many different reads. Thus
+  variation between the different sequences is due to
+  1. Non-homology of sequences
+  2. Polymorphism
+  3. Sequencing error
+
+  The initial task is to cluster the 5 million sequences into
+  different genomic loci.
+
+  There is one read per line; the top of the file looks like this
+
+yakuba:/data/shared/Hpy_parsed_as_Nde> h combined
+CAAATACCAATTTTGCATGATCAATGCTTGCTTGATTTTATATCAATATGTTTATGCTTATATTTCAT
+AAGGTGCAGAAAACTTTTTGGTTTAAAACCAAAAATTTTTCTATAATCATACA
+TTAAACAATGCCTGCACCACACCAATTAAATAAAAAAGTGCTATTCTTATTTAAAACTCCTGTGTATA
+TTCACCCCTCTTGATAGGTAATGTTTTATTGCTAATTACATGCATACA
+GTGATGAATGTGTCAAAGAGAATGGCAAAAGTCTCCTGTTAGTATGNTTGAAAAAAGATCTTGATGTG
+TGAACCTTGAGGAACCCCGGAAGTAACAACATACC
+CGGCCTTGTCATCCTGAGTTCGATTGGTCCGGACAAGAGTAAACACGTGATGGATTACGACATACAAC
+TAACAAATGTATCAATCATAAATGATTTTTGTGTGTTTAATTAACATACCTGGATCGGAGAGAGGTTC
+TCATGGAGTTTTAAAATCTTATCTTAAAGTTATAGAAATTAAAAAAACACTGTGTATGAGTAGTGTAA
+CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
+
+*** Simple & quick clustering in C
+***** Makefile
+#+begin_src makefile :tangle makefile
+  CFLAGS = -O2 -Wall
+  all:    quickclust
+#+end_src
+
+***** C code
+#+begin_src C :tangle quickclust.c
+  #include <stdlib.h>
+  #include <stdio.h>
+  #include <assert.h>
+  #include <unistd.h>
+  
+  void usage() ;
+  void ERROR (char *msg) ;
+  void *memcpy(void *dest, const void *src, size_t n);
+  
+  int main(int argc, char **argv) {
+      char *item=NULL ;           /* getline automatically mallocs and reallocs line */
+      size_t maxlinelength=0 ;    /*    and increments maxlinelength */
+      int maxitems = 1 ;          /* number of allocated items */
+      int maxK = 1 ;              /* number of allocated canonical sequences */
+      int i, c, d, k, K, nchars=-1, maxd=-1 ;
+      int *cluster = (int *) malloc(maxitems * sizeof(int)) ;
+      char **canonical_member = (char **) malloc(maxK * sizeof(char *)) ;
+  
+      while((c = getopt(argc, argv, "c:d:")) != -1) {
+          switch(c) {
+          case 'c':
+              nchars = atoi(optarg) ;
+              break ;
+          case 'd':
+              maxd = atoi(optarg) ;
+              break ;
+          case '?':
+              usage() ;
+          }
+      }
+      if(nchars <= 0 || maxd < 0) usage() ;
+      
+      i = K = 0 ;
+      while( getline(&item, &maxlinelength, stdin) > 0 ) {
+          for(cluster[i] = -1, k = 0 ; k < K ; k++) {
+              for(d = 0, c = 0 ; c < nchars ; c++)
+                  if(item[c] != canonical_member[k][c]) d++ ; 
+              if( d <= maxd ) { cluster[i] = k ; break ; }
+          }
+          if(cluster[i] == -1) {
+              cluster[i] = K ;
+              canonical_member[K] = (char *) malloc(nchars * sizeof(char)) ;
+              memcpy(canonical_member[K], item, nchars * sizeof(char)) ;
+              if(++K > maxK) {
+                  maxK *= 2 ;
+                  canonical_member = realloc(canonical_member, maxK * sizeof(char *)) ;
+              }
+          }
+          printf("%d\n", cluster[i] + 1) ;
+          // if(++i > maxitems) {
+          //     maxitems *= 2 ;
+          //     cluster = realloc(cluster, maxitems * sizeof(int)) ;
+          // }
+      }
+      return 0 ;
+  }
+  
+  void ERROR (char *msg) {
+      fputs(msg, stderr) ;
+      fputc('\n', stderr) ;
+      exit(2) ;
+  }
+  
+  void usage() {
+      ERROR("quickclust -c numchars -d maxdiff") ;
+  }
+#+end_src
+
+*** R
+
+#+begin_src R
+  cluster.sequences <- function(file, thresh) {
+      nseqs <- as.integer(system(paste("wc -l <", file), intern=TRUE))
+      ans <- rep(NA, nseqs)
+  
+      cat(date(), "\tReading", nseqs, "sequences")
+      x <- scan(pipe(sprintf("tr 'AGCT' '1234' < %s", file)), what="", quiet=TRUE)
+      x <- strsplit(x, "")
+      cat("\n")
+  
+      lengths <- sapply(x, length)
+      min.length <- min(lengths)
+      cat(date(), "\tDiscarding all but initial", min.length, "bases")
+      x <- lapply(x, "[", 1:min.length)
+      cat("\n")
+      
+      cat(date(), "\tConverting to integer matrix format")
+      x <- matrix(as.integer(unlist(x)), ncol=nseqs, nrow=min.length)
+      cat("\n")
+  
+      nas <- rep(NA, nrow(x))
+      distances <- function(x) {
+          ax <- cbind(nas, x)
+          bx <- cbind(x, nas)
+          d <- abs(colSums(ax - bx)) / min.length
+          d[-c(1,ncol(ax))]
+      }
+      
+      cat(date(), "\tComputing distances between consecutive sequences")
+      close <- rle(distances(x) < thresh)
+      
+      cat("\n")
+  
+      
+      close
+  }
+#+end_src
