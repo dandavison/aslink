@@ -1,7 +1,7 @@
 #+startup: hideblocks
 
-* Clustering sequence reads
-  The output from Peter & David's Selexa pipeline is a file containing
+* Introduction
+  The output from the Solexa pipeline is a file containing
   around 5 x 10^6 sequence reads, each about 20-80 bp long. These
   correspond to multiple genomic loci in multiple individuals. A given
   locus in a given individual may have many different reads. Thus
@@ -10,11 +10,15 @@
   2. Polymorphism
   3. Sequencing error
 
-  The initial task is to cluster the 5 million sequences into
-  different genomic loci.
+  The task is to cluster the 5 million sequences so that all members
+  of a given cluster represent the same locus, and so that no
+  sequences representing the same locus are members of different
+  clusters.
 
-  There is one read per line; the top of the file looks like this
+  There is one sequence read per line; the top of the file looks like
+  this
 
+#+begin_example 
 yakuba:/data/shared/Hpy_parsed_as_Nde> h combined
 CAAATACCAATTTTGCATGATCAATGCTTGCTTGATTTTATATCAATATGTTTATGCTTATATTTCAT
 AAGGTGCAGAAAACTTTTTGGTTTAAAACCAAAAATTTTTCTATAATCATACA
@@ -26,8 +30,33 @@ CGGCCTTGTCATCCTGAGTTCGATTGGTCCGGACAAGAGTAAACACGTGATGGATTACGACATACAAC
 TAACAAATGTATCAATCATAAATGATTTTTGTGTGTTTAATTAACATACCTGGATCGGAGAGAGGTTC
 TCATGGAGTTTTAAAATCTTATCTTAAAGTTATAGAAATTAAAAAAACACTGTGTATGAGTAGTGTAA
 CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
+#+end_example
 
-*** Simple & quick clustering in C
+* Simple clustering in C
+  This C code implements the following algorithm:
+  
+#+begin_src python
+  for each sequence:
+      for each canonical_sequence:
+          if sequence is close to canonical sequence:
+              assign sequence to that cluster
+      if sequence is unassigned:
+          make sequence canonical representative of new cluster
+#+end_src
+  
+  In this algorithm, when we create a new cluster, we know that the
+  canonical sequence is not "close" to any of the other canonical
+  sequences.
+
+  *However* it is possible that
+  1. A new canonical sequence is "close" to an assigned non-canonical
+     sequence.
+  2. A newly assigned sequence is similar to sequences in other
+     clusters (either canonical or non-canonical).
+
+  So the algorithm is not correct in general. But it should work well
+  when different loci have very different sequences.
+
 ***** Makefile
 #+begin_src makefile :tangle makefile
   CFLAGS = -O2 -Wall
@@ -41,8 +70,9 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
   #include <assert.h>
   #include <unistd.h>
   
+  #include <stdarg.h>
   void usage() ;
-  void ERROR (char *msg) ;
+  void ERROR(char *fmt, ...) ;
   void *memcpy(void *dest, const void *src, size_t n);
   
   int main(int argc, char **argv) {
@@ -93,10 +123,16 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
       return 0 ;
   }
   
-  void ERROR (char *msg) {
-      fputs(msg, stderr) ;
-      fputc('\n', stderr) ;
-      exit(2) ;
+  void ERROR(char *fmt, ...) {
+      va_list args;
+  
+      fflush(stderr);
+      
+      va_start(args, fmt);
+      vfprintf(stderr, fmt, args);
+      va_end(args);
+      
+      fflush(stderr) ;
   }
   
   void usage() {
@@ -104,28 +140,86 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
   }
 #+end_src
 
-*** R
+***** Timing
+| code                             |    seqs |  c | d | clusters found | outfile        |      time |
+|----------------------------------+---------+----+---+----------------+----------------+-----------|
+| vanilla                          |     1e4 | 20 | 5 |           4439 | clusters-0-1e4 |     0.435 |
+| vanilla                          |     1e5 | 20 | 5 |          12070 | clusters-0-1e5 |       7.4 |
+| check seqlen & progress          |     1e5 | 20 | 5 |          12070 |                |       7.6 |
+| check seqlen progress every 1000 |         |    |   |                |                |       7.3 |
+|                                  | 5288915 |    |   |          69655 |                | ~ 10 mins |
+***** Validation
+
+      
+******* Compare results with reversed input
+
+#+begin_src sh
+tac ../combined > combined-reversed
+quickclust -c 20 -d 4 < combined-reversed | tac > clusters-all-c20-d4-rev
+#+end_src
 
 #+begin_src R
-  cluster.sequences <- function(file, thresh) {
-      nseqs <- as.integer(system(paste("wc -l <", file), intern=TRUE))
-      ans <- rep(NA, nseqs)
   
-      cat(date(), "\tReading", nseqs, "sequences")
-      x <- scan(pipe(sprintf("tr 'AGCT' '1234' < %s", file)), what="", quiet=TRUE)
+#+end_src
+
+
+******* Read sequences into R
+#+begin_src R
+  read.sequences <- function(file) {
+      cat(date(), "\tReading sequences")
+      x <- scan(file, what="", quiet=TRUE)
       x <- strsplit(x, "")
       cat("\n")
-  
+      
       lengths <- sapply(x, length)
       min.length <- min(lengths)
       cat(date(), "\tDiscarding all but initial", min.length, "bases")
       x <- lapply(x, "[", 1:min.length)
       cat("\n")
       
-      cat(date(), "\tConverting to integer matrix format")
-      x <- matrix(as.integer(unlist(x)), ncol=nseqs, nrow=min.length)
+      cat(date(), "\tConverting to matrix format (each column is one sequence)")
+      ## x <- matrix(as.integer(unlist(x)), ncol=nseqs, nrow=min.length)
+      x <- matrix(unlist(x), nrow=length(x), ncol=min.length, byrow=TRUE)
       cat("\n")
+      
+      x
+  }
+#+end_src
+
+
+#+begin_src R 
+  library(RColorBrewer, lib="~/lib/R")
+  library(TraMineR, lib="~/lib/R")
   
+  file <- "/data/shared/Hpy_parsed_as_Nde/combined"
+  x <- read.sequences(pipe(sprintf("head -n 10000 < %s", file)))
+  x <- x[,1:20]
+  sx <- seqdef(x)
+  dx <- seqdist(sx, method="HAM", with.miss=TRUE, full.matrix=FALSE)
+  summary(dx)
+#+end_src
+
+
+* An incomplete attempt in R
+    The idea here was to use various sorting heuristics, eliminate
+    duplicate sequences that occur consecutively in the sorted output,
+    and thus end up with a manageable number of sequences to cluster.
+
+    I was considering forming the lower-triangle of the full distance
+    matrix using dist(), and then applying a hierarchical clustering
+    method using hclust() and identifying clusters at some similarity
+    threshold using cutree(). But I am concerned that dist/hclust will
+    be hopelessly slow, and decided to investigate straightforward
+    solutions in C first.
+
+#+begin_src R
+  cluster.sequences <- function(file, thresh) {
+      nseqs <- as.integer(system(paste("wc -l <", file), intern=TRUE))
+      ans <- rep(NA, nseqs)
+  
+      ## file <- pipe(sprintf("tr 'AGCT' '1234' < %s", file))
+  
+      x <- read.sequences(file)
       nas <- rep(NA, nrow(x))
       distances <- function(x) {
           ax <- cbind(nas, x)
