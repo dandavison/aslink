@@ -69,44 +69,45 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
   #include <stdio.h>
   #include <assert.h>
   #include <unistd.h>
-  
   #include <stdarg.h>
+  
   void usage() ;
   void ERROR(char *fmt, ...) ;
   void *memcpy(void *dest, const void *src, size_t n);
+  ssize_t getline(char **lineptr, size_t *n, FILE *stream);
   
   int main(int argc, char **argv) {
       char *item=NULL ;           /* getline automatically mallocs and reallocs line */
       size_t maxlinelength=0 ;    /*    and increments maxlinelength */
-      int maxitems = 1 ;          /* number of allocated items */
+      // int maxitems = 1 ;          /* number of allocated items */
       int maxK = 1 ;              /* number of allocated canonical sequences */
-      int i, c, d, k, K, nchars=-1, maxd=-1 ;
-      int *cluster = (int *) malloc(maxitems * sizeof(int)) ;
+      int i, c, d, k, K, nchars=-1, maxd=-1, seqlen ;
+      int cluster ;
+      // int *cluster = (int *) malloc(maxitems * sizeof(int)) ;
       char **canonical_member = (char **) malloc(maxK * sizeof(char *)) ;
   
       while((c = getopt(argc, argv, "c:d:")) != -1) {
           switch(c) {
-          case 'c':
-              nchars = atoi(optarg) ;
-              break ;
-          case 'd':
-              maxd = atoi(optarg) ;
-              break ;
-          case '?':
-              usage() ;
+          case 'c': nchars = atoi(optarg) ; break ;
+          case 'd': maxd = atoi(optarg) ; break ;
+          case '?': usage() ;
           }
       }
       if(nchars <= 0 || maxd < 0) usage() ;
       
       i = K = 0 ;
-      while( getline(&item, &maxlinelength, stdin) > 0 ) {
-          for(cluster[i] = -1, k = 0 ; k < K ; k++) {
+      while( (seqlen = getline(&item, &maxlinelength, stdin)) > 0 ) {
+          if( --seqlen < nchars )
+              ERROR("Line %d has %d characters (should be at least %d)\n", i, seqlen, nchars) ;
+          if(i % 1000 == 0) fprintf(stderr, "%6d\r", i) ;
+          
+          for(cluster = -1, k = 0 ; k < K ; k++) {
               for(d = 0, c = 0 ; c < nchars ; c++)
                   if(item[c] != canonical_member[k][c]) d++ ; 
-              if( d <= maxd ) { cluster[i] = k ; break ; }
+              if( d <= maxd ) { cluster = k ; break ; }
           }
-          if(cluster[i] == -1) {
-              cluster[i] = K ;
+          if(cluster == -1) {
+              cluster = K ;
               canonical_member[K] = (char *) malloc(nchars * sizeof(char)) ;
               memcpy(canonical_member[K], item, nchars * sizeof(char)) ;
               if(++K > maxK) {
@@ -114,12 +115,11 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
                   canonical_member = realloc(canonical_member, maxK * sizeof(char *)) ;
               }
           }
-          printf("%d\n", cluster[i] + 1) ;
-          // if(++i > maxitems) {
-          //     maxitems *= 2 ;
-          //     cluster = realloc(cluster, maxitems * sizeof(int)) ;
-          // }
+          printf("%d\n", cluster + 1) ;
+          i++ ;
       }
+      // for(k = 0 ; k < K ; k++) free(canonical_member[k]) ;
+      // free(canonical_member) ;
       return 0 ;
   }
   
@@ -133,13 +133,13 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
       va_end(args);
       
       fflush(stderr) ;
+      exit(2) ;
   }
   
   void usage() {
       ERROR("quickclust -c numchars -d maxdiff") ;
   }
 #+end_src
-
 ***** Timing
 | code                             |    seqs |  c | d | clusters found | outfile        |      time |
 |----------------------------------+---------+----+---+----------------+----------------+-----------|
