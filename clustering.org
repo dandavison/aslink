@@ -125,7 +125,7 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
       int maxK = 1 ;                /* number of allocated canonical sequences */
       int i, c, ic, d, n, k, K, seqlen=-1, maxd=-1 ;
       int cluster ;
-      char *canonical_member ;
+      char *canonical_member, *canon ;
       struct node
           *root = newNode(1), *v,
           *nodestack = newNode(NODE_STACK_SIZE),
@@ -162,9 +162,9 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
           }
           if( (cluster = v->cluster) == NA ) {
               /* Sequence not seen before; compare with canonical sequences. */
-              for(k = 0 ; k < K ; k++) {
+              for(canon = canonical_member, k = 0 ; k < K ; k++, canon += seqlen) {
                   for(d = 0, c = 0 ; c < seqlen ; c++)
-                      if(line[c] != canonical_member[k * seqlen + c]) d++ ;
+                      if(line[c] != canon[c]) d++ ;
                   if( d <= maxd ) { cluster = v->cluster = k ; break ; }
               }
               if(cluster == NA) {
