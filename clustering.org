@@ -125,7 +125,7 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
       int maxK = 1 ;                /* number of allocated canonical sequences */
       int i, c, ic, d, n, k, K, seqlen=-1, maxd=-1 ;
       int cluster ;
-      char **canonical_member = (char **) malloc(maxK * sizeof(char *)) ;
+      char *canonical_member ;
       struct node
           *root = newNode(1), *v,
           *nodestack = newNode(NODE_STACK_SIZE),
@@ -140,6 +140,7 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
       }
       if(seqlen <= 0 || maxd < 0) usage() ;
       iseq = (int *) malloc(seqlen * sizeof(int)) ;
+      canonical_member  = (char *) malloc(maxK * seqlen * sizeof(char)) ;
   
       i = K = 0 ;
       while( (n = getline(&line, &maxlinelength, stdin)) > 0 ) {
@@ -163,17 +164,16 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
               /* Sequence not seen before; compare with canonical sequences. */
               for(k = 0 ; k < K ; k++) {
                   for(d = 0, c = 0 ; c < seqlen ; c++)
-                      if(line[c] != canonical_member[k][c]) d++ ;
+                      if(line[c] != canonical_member[k * seqlen + c]) d++ ;
                   if( d <= maxd ) { cluster = v->cluster = k ; break ; }
               }
               if(cluster == NA) {
                   /* Not seen before and not similar to any canonical member. */
                   cluster = v->cluster = K ;
-                  canonical_member[K] = (char *) malloc(seqlen * sizeof(char)) ;
-                  memcpy(canonical_member[K], line, seqlen * sizeof(char)) ;
-                  if(++K > maxK) {
+                  memcpy(canonical_member + K * seqlen, line, seqlen * sizeof(char)) ;
+                  if(++K == maxK) {
                       maxK *= 4 ;
-                      canonical_member = realloc(canonical_member, maxK * sizeof(char *)) ;
+                      canonical_member = realloc(canonical_member, (size_t) (maxK * seqlen * sizeof(char))) ;
                   }
               }
           }
@@ -181,11 +181,8 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
           if(i % 10000 == 0 && i > 0) fprintf(stderr, "%6d\r", i) ;
           i++ ;
       }
-      for(k = 0 ; k < (K - 1) ; k++) free(canonical_member[k]) ;
       free(canonical_member) ;
       free(iseq) ;
-      // free_tree(root) ;
-      free(root) ;
       return 0 ;
   }
   
