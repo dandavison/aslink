@@ -53,8 +53,10 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
       
       x
   }
+  
+  read.seqs.2 <- function(file, nchar)
+      scan(pipe(sprintf("cut -c1-%d < %s", nchar, file)), what="")
 #+end_src
-
 
 #+begin_src R 
   library(RColorBrewer, lib="~/lib/R")
@@ -376,6 +378,26 @@ tg
    14    15    16    17    18    19    20 
   220   174   167   133   131    96   104 
 #+end_example
+******* singletons
+#+begin_src R
+  file <- "/data/shared/Hpy_parsed_as_Nde/combined"
+  x <- read.seqs.2(file, 20) 
+  ux <- unique(x)
+  
+  g <- scan("clusters-all-c20-d4-merge", what=integer())
+  
+  tg <- table(g)
+  singlei <- as.integer(names(tg[tg == 1]))
+  
+  k <- max(singlei)
+  ink <- which(g == k)
+  stopifnot(length(ink) == 1)
+  xi <- x[ink]
+  
+  close <- agrep(xi, x, useBytes=TRUE, max.distance=4)
+#+end_src
+  
+  
 *** Validation
 ***** Compare results with reversed input
 
