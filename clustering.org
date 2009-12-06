@@ -102,56 +102,129 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
   #include <unistd.h>
   #include <stdarg.h>
   
+  #define NSTATES 5
+  #define NODE_STACK_SIZE 100000
+  
+  enum {NA = -1} ;
+  struct node {
+      int cluster ;
+      struct node *d[NSTATES] ;
+  } ;
+  struct node *newNode(int n) ;
+  void free_tree(struct node *v) ;
+  void encode(char *seq, int seqlen, int *iseq) ;
   void usage() ;
   void ERROR(char *fmt, ...) ;
   void *memcpy(void *dest, const void *src, size_t n);
   ssize_t getline(char **lineptr, size_t *n, FILE *stream);
   
   int main(int argc, char **argv) {
-      char *item=NULL ;           /* getline automatically mallocs and reallocs line */
-      size_t maxlinelength=0 ;    /*    and increments maxlinelength */
-      // int maxitems = 1 ;          /* number of allocated items */
-      int maxK = 1 ;              /* number of allocated canonical sequences */
-      int i, c, d, k, K, nchars=-1, maxd=-1, seqlen ;
+      char *line=NULL ;           /* getline automatically mallocs and reallocs line */
+      size_t maxlinelength=0 ;      /*    and increments maxlinelength */
+      int *iseq ;              /* integer-encoded sequence */           
+      int maxK = 1 ;                /* number of allocated canonical sequences */
+      int i, c, ic, d, n, k, K, seqlen=-1, maxd=-1 ;
       int cluster ;
-      // int *cluster = (int *) malloc(maxitems * sizeof(int)) ;
       char **canonical_member = (char **) malloc(maxK * sizeof(char *)) ;
+      struct node
+          *root = newNode(1), *v,
+          *nodestack = newNode(NODE_STACK_SIZE),
+          *nodestack_end = nodestack + NODE_STACK_SIZE ;
   
       while((c = getopt(argc, argv, "c:d:")) != -1) {
           switch(c) {
-          case 'c': nchars = atoi(optarg) ; break ;
+          case 'c': seqlen = atoi(optarg) ; break ;
           case 'd': maxd = atoi(optarg) ; break ;
           case '?': usage() ;
           }
       }
-      if(nchars <= 0 || maxd < 0) usage() ;
-      
+      if(seqlen <= 0 || maxd < 0) usage() ;
+      iseq = (int *) malloc(seqlen * sizeof(int)) ;
+  
       i = K = 0 ;
-      while( (seqlen = getline(&item, &maxlinelength, stdin)) > 0 ) {
-          if( --seqlen < nchars )
-              ERROR("Line %d has %d characters (should be at least %d)\n", i, seqlen, nchars) ;
-          if(i % 1000 == 0) fprintf(stderr, "%6d\r", i) ;
+      while( (n = getline(&line, &maxlinelength, stdin)) > 0 ) {
+          if( --n < seqlen )
+              ERROR("Line %d has %d characters (should be at least %d)\n", i, n, seqlen) ;
+          encode(line, seqlen, iseq) ;
           
-          for(cluster = -1, k = 0 ; k < K ; k++) {
-              for(d = 0, c = 0 ; c < nchars ; c++)
-                  if(item[c] != canonical_member[k][c]) d++ ; 
-              if( d <= maxd ) { cluster = k ; break ; }
+          /* First, check if identical sequence has been seen before. */
+          for(v = root, c = 0 ; c < seqlen ; c++) {
+              ic = iseq[c] ;
+              if(v->d[ic] == NULL) {
+                  if(nodestack == nodestack_end) {
+                      nodestack = newNode(NODE_STACK_SIZE) ;
+                      nodestack_end = nodestack + NODE_STACK_SIZE ;
+                  }
+                  v->d[ic] = nodestack++ ;
+              }
+              v = v->d[ic] ;
           }
-          if(cluster == -1) {
-              cluster = K ;
-              canonical_member[K] = (char *) malloc(nchars * sizeof(char)) ;
-              memcpy(canonical_member[K], item, nchars * sizeof(char)) ;
-              if(++K > maxK) {
-                  maxK *= 2 ;
-                  canonical_member = realloc(canonical_member, maxK * sizeof(char *)) ;
+          if( (cluster = v->cluster) == NA ) {
+              /* Sequence not seen before; compare with canonical sequences. */
+              for(k = 0 ; k < K ; k++) {
+                  for(d = 0, c = 0 ; c < seqlen ; c++)
+                      if(line[c] != canonical_member[k][c]) d++ ;
+                  if( d <= maxd ) { cluster = v->cluster = k ; break ; }
+              }
+              if(cluster == NA) {
+                  /* Not seen before and not similar to any canonical member. */
+                  cluster = v->cluster = K ;
+                  canonical_member[K] = (char *) malloc(seqlen * sizeof(char)) ;
+                  memcpy(canonical_member[K], line, seqlen * sizeof(char)) ;
+                  if(++K > maxK) {
+                      maxK *= 4 ;
+                      canonical_member = realloc(canonical_member, maxK * sizeof(char *)) ;
+                  }
               }
           }
           printf("%d\n", cluster + 1) ;
+          if(i % 10000 == 0 && i > 0) fprintf(stderr, "%6d\r", i) ;
           i++ ;
       }
-      // for(k = 0 ; k < K ; k++) free(canonical_member[k]) ;
-      // free(canonical_member) ;
+      for(k = 0 ; k < (K - 1) ; k++) free(canonical_member[k]) ;
+      free(canonical_member) ;
+      free(iseq) ;
+      // free_tree(root) ;
+      free(root) ;
       return 0 ;
+  }
+  
+  void encode(char *seq, int seqlen, int *iseq) {
+      int i ;
+      char c ;
+      for(i = 0 ; i < seqlen ; i++) {
+          c = seq[i] ;
+          iseq[i] = 
+              c == 'A' ? 0 :
+              c == 'C' ? 1 :
+              c == 'G' ? 2 :
+              c == 'T' ? 3 :
+              c == 'N' ? 4 :
+              NA ;
+          if(iseq[i] == NA)
+              ERROR("Invalid base: %c\n", c) ;
+      }
+  }
+  
+  struct node *newNode(int n) {
+      int i ; 
+      struct node *v, *new = (struct node *) malloc(n * sizeof(struct node)) ;
+      
+      for(v = new ; v < new + n ; v++) {
+          for(i = 0 ; i < NSTATES ; i++) v->d[i] = NULL ;
+          v->cluster = NA ;
+      }
+      return new ;
+  }
+  
+  void free_tree(struct node *v) {
+      int i ;
+      for(i = 0 ; i < NSTATES ; i++) {
+          if(v->d[i] != NULL) {
+              free_tree(v->d[i]) ;
+              free(v->d[i]) ;
+          }
+      }
   }
   
   void ERROR(char *fmt, ...) {
@@ -204,8 +277,6 @@ quickclust -c 20 -d 4 < combined-reversed | tac > clusters-all-c20-d4-rev
           cat(x[clusters == i], sep="\n", file=file.path("clusters", sprintf("%05d", i)))
       }
       cat("\n")
-      
-      x
   }
 #+end_src
 *** sed
@@ -221,7 +292,6 @@ quickclust -c 20 -d 4 < combined-reversed | tac > clusters-all-c20-d4-rev
       (( i += 1 ))
   done
 #+end_src
-
 
 * An incomplete attempt in R
     The idea here was to use various sorting heuristics, eliminate
