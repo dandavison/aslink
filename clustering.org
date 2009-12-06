@@ -255,6 +255,7 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
 | check seqlen & progress          |     1e5 | 20 | 5 |          12070 |                |       7.6 |
 | check seqlen progress every 1000 |         |    |   |                |                |       7.3 |
 |                                  | 5288915 |    |   |          69655 |                | ~ 10 mins |
+| tree-based lookup                | 5288915 |    |   |          69655 |                | 95 secs   |
 *** Validation
 ***** Compare results with reversed input
 
