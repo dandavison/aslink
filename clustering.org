@@ -61,7 +61,8 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
   library(TraMineR, lib="~/lib/R")
   
   file <- "/data/shared/Hpy_parsed_as_Nde/combined"
-  x <- read.sequences(pipe(sprintf("head -n 10000 < %s", file)))
+  ## x <- read.sequences(pipe(sprintf("head -n 10000 < %s", file)))
+  x <- read.sequences(file)
   x <- x[,1:20]
   sx <- seqdef(x)
   dx <- seqdist(sx, method="HAM", with.miss=TRUE, full.matrix=FALSE)
@@ -70,29 +71,88 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
 
 * Simple clustering in C
 *** Algorithm
-  This C code implements the following algorithm:
+  The C code implements the following algorithm:
   
-#+begin_src python
+#+begin_src python -n
   for each sequence:
-      for each canonical_sequence:
-          if sequence is close to canonical sequence:
-              assign sequence to that cluster
-      if sequence is unassigned:
-          make sequence canonical representative of new cluster
+      if sequence has been seen before:
+          assign to same cluster as before
+      else:
+          for each existing cluster k:
+              if sequence is close to canonical_sequence k:
+                  add k to list_of_close_clusters
+          if list_of_close_clusters is not empty:
+              merge clusters in list_of_close_clusters
+              assign sequence to merged cluster
+          else:
+              make sequence canonical representative of new cluster
 #+end_src
+		  
+  Afterwards: is it possible that there are two "close" sequences
+  which are assigned to different clusters?
+
+  1. Let those different clusters be h and k with canonical sequences
+     h* and k*
+  2. Let the close sequences be sequence i in cluster h and seq j in
+     cluster k
+  3. Cluster h was created first and seq i was assigned to it
+  4. When seq j was encountered we checked that it was not close to
+     h*
+  5. But we did not check whether it was close to i
+  6. So if dist(h*, k*) <= 2d then it is possible that i is close to j
+
+  So we need a final stage in which we check all pairs {h, k} of
+  clusters for which dist(h*, k*) <= 2d, and merge them if they
+  contain any close sequences.
+
+#+begin_src python -n
+  K <- 0
+  for i in sequences:
+      if sequence i has been seen before:
+          assign to same cluster as before
+      else:
+          for each existing cluster k:
+              if dist(sequence, k*) <= d:
+                  add k to close_clusters
+              else if dist(sequence, k*) <= 2d:
+                  add k to temp_potentially_close_clusters
+          if close_clusters is not empty:
+              min_k = min(close_clusters)
+              for k in close_clusters:
+                  map[k] = min_k
+              assign sequence to min_k
+          else:
+              make sequence canonical representative of new cluster K
+              potentially_close_clusters[K] = temp_potentially_close_clusters
+              K <- K+1
+#+end_src
+
+#+begin_src python -n
+  K <- 0
+  for i in sequences:
+      if sequence i has been seen before:
+          cluster[i] = previously assigned cluster
+      else:
+          for k in existing_clusters:
+              if dist(sequence, k*) <= d:
+                  add k to close_clusters
+              else if dist(sequence, k*) <= 2d:
+                  add k to temp_potentially_close_clusters
+          if close_clusters is not empty:
+              ## Merge clusters and assign to merged
+              min_k = min(close_clusters)
+              for k in close_clusters:
+                  map[k] = min_k
+              cluster[i] = min_k
+          else:
+              ## Make sequence canonical representative of new cluster K
+              cluster[i] = K
+              potentially_close_clusters[K] = temp_potentially_close_clusters
+              K <- K+1
   
-  In this algorithm, when we create a new cluster, we know that the
-  canonical sequence is not "close" to any of the other canonical
-  sequences.
-
-  *However* it is possible that
-  1. A new canonical sequence is "close" to an assigned non-canonical
-     sequence.
-  2. A newly assigned sequence is similar to sequences in other
-     clusters (either canonical or non-canonical).
-
-  So the algorithm is not correct in general. But it should work well
-  when different loci have very different sequences.
+  for k in 1...K :
+      if potentially_close_clusters[k] is not empty:
+#+end_src
 
 *** C code
 #+begin_src C :tangle quickclust.c
@@ -256,6 +316,45 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
 | check seqlen progress every 1000 |         |    |   |                |                |       7.3 |
 |                                  | 5288915 |    |   |          69655 |                | ~ 10 mins |
 | tree-based lookup                | 5288915 |    |   |          69655 |                | 95 secs   |
+*** Results
+***** Unmerged
+#+begin_example 
+> g <- scan("/data/shared/Hpy_parsed_as_Nde/dan/clusters-all-c20-d4", what=integer())
+Read 5288915 items
+> tg <- table(g)
+> length(tg)
+[1] 69655
+> sum(tg > 1)
+[1] 53281
+> sum(tg > 1000)
+[1] 1334
+> ttg <- table(tg)
+> ttg[1:20]
+tg
+    1     2     3     4     5     6     7     8     9    10    11    12    13 
+16374 12253  8902  6138  4215  2933  1954  1399  1000   714   493   381   300 
+   14    15    16    17    18    19    20 
+  239   194   155   130   132   102   107 
+#+end_example
+***** Merged
+#+begin_example
+> g <- scan("/home/dan/pa/Papilio/clusters-all-c20-d4-merge", what=integer())
+Read 5288915 items
+> tg <- table(g)
+> length(tg)
+[1] 64153
+> sum(tg > 1)
+[1] 49358
+> sum(tg > 1000)
+[1] 1353
+> ttg <- table(tg)
+> ttg[1:20]
+tg
+    1     2     3     4     5     6     7     8     9    10    11    12    13 
+14795 11200  8081  5571  3875  2706  1770  1296   915   675   468   364   290 
+   14    15    16    17    18    19    20 
+  220   174   167   133   131    96   104 
+#+end_example
 *** Validation
 ***** Compare results with reversed input
 
@@ -265,6 +364,15 @@ quickclust -c 20 -d 4 < combined-reversed | tac > clusters-all-c20-d4-rev
 #+end_src
 
 * Split input into clusters
+*** lines
+#+begin_src R
+  write.lines <- function(i) {
+      if(i %% 100 == 0) cat(i, "\r")
+      cat(which(clusters == i), sep="\n", file=file.path("lines", sprintf("%05d.lines", i)))
+  }
+  lapply(unique(clusters), write.lines)
+#+end_src
+
 *** R
 #+begin_src R 
   file <- "/data/shared/Hpy_parsed_as_Nde/combined"
