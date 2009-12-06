@@ -32,7 +32,44 @@ TCATGGAGTTTTAAAATCTTATCTTAAAGTTATAGAAATTAAAAAAACACTGTGTATGAGTAGTGTAA
 CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
 #+end_example
 
+* Read sequences into R
+#+begin_src R
+  read.sequences <- function(file) {
+      cat(date(), "\tReading sequences")
+      x <- scan(file, what="", quiet=TRUE)
+      x <- strsplit(x, "")
+      cat("\n")
+      
+      lengths <- sapply(x, length)
+      min.length <- min(lengths)
+      cat(date(), "\tDiscarding all but initial", min.length, "bases")
+      x <- lapply(x, "[", 1:min.length)
+      cat("\n")
+      
+      cat(date(), "\tConverting to matrix format (each column is one sequence)")
+      ## x <- matrix(as.integer(unlist(x)), ncol=nseqs, nrow=min.length)
+      x <- matrix(unlist(x), nrow=length(x), ncol=min.length, byrow=TRUE)
+      cat("\n")
+      
+      x
+  }
+#+end_src
+
+
+#+begin_src R 
+  library(RColorBrewer, lib="~/lib/R")
+  library(TraMineR, lib="~/lib/R")
+  
+  file <- "/data/shared/Hpy_parsed_as_Nde/combined"
+  x <- read.sequences(pipe(sprintf("head -n 10000 < %s", file)))
+  x <- x[,1:20]
+  sx <- seqdef(x)
+  dx <- seqdist(sx, method="HAM", with.miss=TRUE, full.matrix=FALSE)
+  summary(dx)
+#+end_src
+
 * Simple clustering in C
+*** Algorithm
   This C code implements the following algorithm:
   
 #+begin_src python
@@ -57,13 +94,7 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
   So the algorithm is not correct in general. But it should work well
   when different loci have very different sequences.
 
-***** Makefile
-#+begin_src makefile :tangle makefile
-  CFLAGS = -O2 -Wall
-  all:    quickclust
-#+end_src
-
-***** C code
+*** C code
 #+begin_src C :tangle quickclust.c
   #include <stdlib.h>
   #include <stdio.h>
@@ -140,7 +171,13 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
       ERROR("quickclust -c numchars -d maxdiff") ;
   }
 #+end_src
-***** Timing
+
+*** Makefile
+#+begin_src makefile :tangle makefile
+  CFLAGS = -O2 -Wall
+  all:    quickclust
+#+end_src
+*** Timing
 | code                             |    seqs |  c | d | clusters found | outfile        |      time |
 |----------------------------------+---------+----+---+----------------+----------------+-----------|
 | vanilla                          |     1e4 | 20 | 5 |           4439 | clusters-0-1e4 |     0.435 |
@@ -148,55 +185,41 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
 | check seqlen & progress          |     1e5 | 20 | 5 |          12070 |                |       7.6 |
 | check seqlen progress every 1000 |         |    |   |                |                |       7.3 |
 |                                  | 5288915 |    |   |          69655 |                | ~ 10 mins |
-***** Validation
-
-      
-******* Compare results with reversed input
+*** Validation
+***** Compare results with reversed input
 
 #+begin_src sh
 tac ../combined > combined-reversed
 quickclust -c 20 -d 4 < combined-reversed | tac > clusters-all-c20-d4-rev
 #+end_src
 
-#+begin_src R
-  
-#+end_src
-
-
-******* Read sequences into R
-#+begin_src R
-  read.sequences <- function(file) {
-      cat(date(), "\tReading sequences")
-      x <- scan(file, what="", quiet=TRUE)
-      x <- strsplit(x, "")
-      cat("\n")
-      
-      lengths <- sapply(x, length)
-      min.length <- min(lengths)
-      cat(date(), "\tDiscarding all but initial", min.length, "bases")
-      x <- lapply(x, "[", 1:min.length)
-      cat("\n")
-      
-      cat(date(), "\tConverting to matrix format (each column is one sequence)")
-      ## x <- matrix(as.integer(unlist(x)), ncol=nseqs, nrow=min.length)
-      x <- matrix(unlist(x), nrow=length(x), ncol=min.length, byrow=TRUE)
+* Split input into clusters
+*** R
+#+begin_src R 
+  file <- "/data/shared/Hpy_parsed_as_Nde/combined"
+  x <- scan(file, what="", quiet=TRUE)
+  split.sequences <- function(x, clusters) {
+      for(i in unique(clusters)) {
+          if(i %% 100 == 0) cat(i, "\r")
+          cat(x[clusters == i], sep="\n", file=file.path("clusters", sprintf("%05d", i)))
+      }
       cat("\n")
       
       x
   }
 #+end_src
-
-
-#+begin_src R 
-  library(RColorBrewer, lib="~/lib/R")
-  library(TraMineR, lib="~/lib/R")
-  
-  file <- "/data/shared/Hpy_parsed_as_Nde/combined"
-  x <- read.sequences(pipe(sprintf("head -n 10000 < %s", file)))
-  x <- x[,1:20]
-  sx <- seqdef(x)
-  dx <- seqdist(sx, method="HAM", with.miss=TRUE, full.matrix=FALSE)
-  summary(dx)
+*** sed
+    This is too slow
+#+begin_src sh
+  #!/bin/bash
+  mkdir -p clusters
+  i=1
+  combined=/data/shared/Hpy_parsed_as_Nde/combined
+  while read cluster ; do
+      sed -n ${i}p < $combined >> clusters/$cluster
+      echo $i
+      (( i += 1 ))
+  done
 #+end_src
 
 
