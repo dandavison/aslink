@@ -164,13 +164,17 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
   
   #define NSTATES 5
   #define NODE_STACK_SIZE 100000
-  
+  #define GROWFAC 4                  /* Growth multiple when reallocing arrays */
+  #define false 0
+  #define true 1
+  typedef int bool ;
   enum {NA = -1} ;
   struct node {
       int cluster ;
       struct node *d[NSTATES] ;
   } ;
   struct node *newNode(int n) ;
+  
   void free_tree(struct node *v) ;
   void encode(char *seq, int seqlen, int *iseq) ;
   void usage() ;
@@ -179,13 +183,16 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
   ssize_t getline(char **lineptr, size_t *n, FILE *stream);
   
   int main(int argc, char **argv) {
-      char *line=NULL ;           /* getline automatically mallocs and reallocs line */
-      size_t maxlinelength=0 ;      /*    and increments maxlinelength */
-      int *iseq ;              /* integer-encoded sequence */           
-      int maxK = 1 ;                /* number of allocated canonical sequences */
-      int i, c, ic, d, n, k, K, seqlen=-1, maxd=-1 ;
-      int cluster ;
+      char *line=NULL ;              /* getline automatically mallocs and reallocs line */
+      size_t maxlinelength=0 ;       /* and increments maxlinelength. */
+      int *iseq ;                    /* integer-encoded sequence */           
+      int maxclusts = 1 ;                 /* current number of allocated clusters */
+      int maxseqs = 1 ;              /* current number of allocated sequences */
+      int i, c, ic, d, n, k, K,
+          seqlen=-1, maxd=-1, numseqs ;
+      int *cluster, *map ;
       char *canonical_member, *canon ;
+      bool gotit ;
       struct node
           *root = newNode(1), *v,
           *nodestack = newNode(NODE_STACK_SIZE),
@@ -200,7 +207,9 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
       }
       if(seqlen <= 0 || maxd < 0) usage() ;
       iseq = (int *) malloc(seqlen * sizeof(int)) ;
-      canonical_member  = (char *) malloc(maxK * seqlen * sizeof(char)) ;
+      canonical_member  = (char *) malloc(maxclusts * seqlen * sizeof(char)) ;
+      map = (int *) malloc(maxclusts * sizeof(int)) ;
+      cluster = (int *) malloc(maxseqs * sizeof(int)) ;
   
       i = K = 0 ;
       while( (n = getline(&line, &maxlinelength, stdin)) > 0 ) {
@@ -220,29 +229,41 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
               }
               v = v->d[ic] ;
           }
-          if( (cluster = v->cluster) == NA ) {
+          cluster[i] = v->cluster ;
+          if( cluster[i] == NA ) {
               /* Sequence not seen before; compare with canonical sequences. */
+              gotit = false ;
               for(canon = canonical_member, k = 0 ; k < K ; k++, canon += seqlen) {
-                  for(d = 0, c = 0 ; c < seqlen ; c++)
-                      if(line[c] != canon[c]) d++ ;
-                  if( d <= maxd ) { cluster = v->cluster = k ; break ; }
+                  for(d = 0, c = 0 ; c < seqlen ; c++) if(line[c] != canon[c]) d++ ;
+                  if( d <= maxd ) {
+                      if(!gotit) { cluster[i] = v->cluster = k ; gotit = true ; }
+                      map[k] = v->cluster ;
+                  }
               }
-              if(cluster == NA) {
-                  /* Not seen before and not similar to any canonical member. */
-                  cluster = v->cluster = K ;
+              if(cluster[i] == NA) {
+                  /* Not seen before and not close to any canonical member. */
+                  cluster[i] = v->cluster = map[K] = K ;
                   memcpy(canonical_member + K * seqlen, line, seqlen * sizeof(char)) ;
-                  if(++K == maxK) {
-                      maxK *= 4 ;
-                      canonical_member = realloc(canonical_member, (size_t) (maxK * seqlen * sizeof(char))) ;
+                  if(++K == maxclusts) {
+                      maxclusts *= GROWFAC ;
+                      canonical_member = realloc(canonical_member, maxclusts * seqlen * sizeof(char)) ;
+                      map = realloc(map, maxclusts * sizeof(int)) ;
                   }
               }
           }
-          printf("%d\n", cluster + 1) ;
           if(i % 10000 == 0 && i > 0) fprintf(stderr, "%6d\r", i) ;
-          i++ ;
+          if(++i == maxseqs) {
+              maxseqs *= GROWFAC ;
+              cluster = realloc(cluster, maxseqs * sizeof(int)) ;
+          }
       }
+      for(numseqs = i, i = 0 ; i < numseqs ; ++i)
+          printf("%d\n", map[cluster[i]] + 1) ;
+  
       free(canonical_member) ;
       free(iseq) ;
+      free(cluster) ;
+      free(map) ;
       return 0 ;
   }
   
