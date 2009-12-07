@@ -76,21 +76,6 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
   The C code implements the following algorithm:
   
 #+begin_src python -n
-  for each sequence:
-      if sequence has been seen before:
-          assign to same cluster as before
-      else:
-          for each existing cluster k:
-              if sequence is close to canonical_sequence k:
-                  add k to list_of_close_clusters
-          if list_of_close_clusters is not empty:
-              merge clusters in list_of_close_clusters
-              assign sequence to merged cluster
-          else:
-              make sequence canonical representative of new cluster
-#+end_src
-		  
-#+begin_src python -n
   for each sequence i:
       if sequence i has been seen before:
           assign i to same cluster as before
@@ -110,71 +95,6 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
               assign i to new cluster
 #+end_src
 		  
-  Afterwards: is it possible that there are two "close" sequences
-  which are assigned to different clusters?
-
-  1. Let those different clusters be h and k with canonical sequences
-     h* and k*
-  2. Let the close sequences be sequence i in cluster h and seq j in
-     cluster k
-  3. Cluster h was created first and seq i was assigned to it
-  4. When seq j was encountered we checked that it was not close to
-     h*
-  5. But we did not check whether it was close to i
-  6. So if dist(h*, k*) <= 2d then it is possible that i is close to j
-
-  So we need a final stage in which we check all pairs {h, k} of
-  clusters for which dist(h*, k*) <= 2d, and merge them if they
-  contain any close sequences.
-
-#+begin_src python -n
-  K <- 0
-  for i in sequences:
-      if sequence i has been seen before:
-          assign to same cluster as before
-      else:
-          for each existing cluster k:
-              if dist(sequence, k*) <= d:
-                  add k to close_clusters
-              else if dist(sequence, k*) <= 2d:
-                  add k to temp_potentially_close_clusters
-          if close_clusters is not empty:
-              min_k = min(close_clusters)
-              for k in close_clusters:
-                  map[k] = min_k
-              assign sequence to min_k
-          else:
-              make sequence canonical representative of new cluster K
-              potentially_close_clusters[K] = temp_potentially_close_clusters
-              K <- K+1
-#+end_src
-
-#+begin_src python -n
-  K <- 0
-  for i in sequences:
-      if sequence i has been seen before:
-          cluster[i] = previously assigned cluster
-      else:
-          for k in existing_clusters:
-              if dist(sequence, k*) <= d:
-                  add k to close_clusters
-              else if dist(sequence, k*) <= 2d:
-                  add k to temp_potentially_close_clusters
-          if close_clusters is not empty:
-              ## Merge clusters and assign to merged
-              min_k = min(close_clusters)
-              for k in close_clusters:
-                  map[k] = min_k
-              cluster[i] = min_k
-          else:
-              ## Make sequence canonical representative of new cluster K
-              cluster[i] = K
-              potentially_close_clusters[K] = temp_potentially_close_clusters
-              K <- K+1
-  
-  for k in 1...K :
-      if potentially_close_clusters[k] is not empty:
-#+end_src
 
 *** C code
 #+begin_src C :tangle quickclust.c
