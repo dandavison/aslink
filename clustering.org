@@ -90,6 +90,26 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
               make sequence canonical representative of new cluster
 #+end_src
 		  
+#+begin_src python -n
+  for each sequence i:
+      if sequence i has been seen before:
+          assign i to same cluster as before
+      else:
+          for each existing cluster k:
+              d = distance(sequence i, canonical sequence k)
+              if d <= d_max:
+                  if i not yet assigned: assign i to cluster k
+                  merge cluster k with cluster containing i
+              else if d <= 2 * d_max:
+                  for each sequence j in cluster k:
+                      if dist(i, j) <= d_max:
+                          if i not yet assigned: assign i to k
+                          merge cluster k with cluster containing i
+                          skip to next k
+          if i not yet assigned:
+              assign i to new cluster
+#+end_src
+		  
   Afterwards: is it possible that there are two "close" sequences
   which are assigned to different clusters?
 
@@ -421,25 +441,16 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
 |                                  | 5288915 |    |   |          69655 |                | ~ 10 mins |
 | tree-based lookup                | 5288915 |    |   |          69655 |                | 95 secs   |
 *** Results
-***** Unmerged
-#+begin_example 
-> g <- scan("/data/shared/Hpy_parsed_as_Nde/dan/clusters-all-c20-d4", what=integer())
-Read 5288915 items
-> tg <- table(g)
-> length(tg)
-[1] 69655
-> sum(tg > 1)
-[1] 53281
-> sum(tg > 1000)
-[1] 1334
-> ttg <- table(tg)
-> ttg[1:20]
-tg
-    1     2     3     4     5     6     7     8     9    10    11    12    13 
-16374 12253  8902  6138  4215  2933  1954  1399  1000   714   493   381   300 
-   14    15    16    17    18    19    20 
-  239   194   155   130   132   102   107 
-#+end_example
+***** Complete
+#+begin_src R 
+  g1 <- scan("clusters-all-c20-d4-complete", what=integer())
+  g2 <- scan("clusters-all-c20-d4-complete-rev", what=integer())
+  tg1 <- table(g1)
+  tg2 <- table(g2)
+  ttg1 <- table(tg1)
+  ttg2 <- table(tg2)
+#+end_src
+
 ***** Merged
 #+begin_example
 > g <- scan("/home/dan/pa/Papilio/clusters-all-c20-d4-merge", what=integer())
@@ -459,7 +470,45 @@ tg
    14    15    16    17    18    19    20 
   220   174   167   133   131    96   104 
 #+end_example
-******* singletons
+***** singletons
+******* check that singletons really are
+#+begin_src R
+  stopifnot(sum(x == x[which(g1 == as.integer(names(tg1)[max(which(tg1 == 1))]))]) == 1)
+  
+  check.singletons <- function(x, g) {
+      tg <- table(g)
+      ston.clusters <- as.integer(names(tg)[which(tg == 1)])
+      ## in.ston <- g %in% ston.clusters
+      ## sapply(stons, function(i) sum(x == x[which(g1 == i)]))
+      for(k in ston.clusters) {
+          in.cluster <- g == k
+          stopifnot(sum(in.cluster) == 1)
+          seq <- x[in.cluster]
+          cat(k, ":")
+          cat(length(agrep(seq, x, max.distance=4)), "\n")
+      }
+  }
+  
+  check.arity <- function(x, g, d, arity, file) {
+      if(!missing(file)) {
+          file <- file(file)
+          sink(file)
+      }
+      tg <- table(g)
+      for(i in seq_along(g)) {
+          k <- g[i]
+          count.quickclust <- sum(g == k)
+          if(!missing(arity) && count.quickclust != arity) next
+          cat(i, "\t", k, "\t")
+          cat(count.quickclust, "\t")
+          count.agrep <- length(agrep(x[i], x, max.distance=d))
+          cat(count.agrep, "\n")
+          if(!missing(file)) flush(file)
+      }
+  }
+#+end_src
+
+******* This may be confused
 #+begin_src R
   file <- "/data/shared/Hpy_parsed_as_Nde/combined"
   x <- read.seqs.2(file, 20) 
@@ -475,10 +524,9 @@ tg
   stopifnot(length(ink) == 1)
   xi <- x[ink]
   
-  close <- agrep(xi, x, useBytes=TRUE, max.distance=4)
+  close <- agrep(xi, ux, useBytes=TRUE, max.distance=4)
 #+end_src
-  
-  
+
 *** Validation
 ***** Compare results with reversed input
 
