@@ -171,7 +171,6 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
                               if(!gotit) {
                                   cluster[i] = v->cluster = k ;
                                   add_to_cluster(seq, k) ;
-                                  memcpy(sequence[k][size[k]], seq, seqlen * sizeof(char)) ;
                                   gotit = true ;
                               }
                               /* Now, all the clusters that were equivalent to k
