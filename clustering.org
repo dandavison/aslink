@@ -196,7 +196,10 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
       for(numseqs = i, i = 0 ; i < numseqs ; ++i)
           printf("%d\n", map[cluster[i]] + 1) ;
       
-      if(outdir != NULL) write_cluster_files(outdir) ;
+      if(outdir != NULL) {
+          if(verbose) fprintf(stderr, "Writing clusters to %s\n", outdir) ;
+          write_cluster_files(outdir) ;
+      }
   
       free(canonical_member) ;
       free(iseq) ;
