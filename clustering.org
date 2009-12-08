@@ -422,7 +422,7 @@ tg
   relabel <- function(z)
       as.integer(factor(z, levels=sort(unique(z))))
 #+end_src
-***** Check arity
+*** Check arity
 #+begin_src R
   check.arity <- function(x, z, d, arity=1, file, quiet=TRUE) {
       if(!quiet && !missing(file)) {
@@ -456,22 +456,27 @@ tg
   ## stopifnot(sum(x == x[which(g1 == as.integer(names(tg1)[max(which(tg1 == 1))]))]) == 1)
   
   check.singletons <- function(x, z, rev=FALSE) {
+      printout <- 10
       tz <- table(z)
       ston.clusters <- as.integer(names(tz)[which(tz == 1)])
       ## in.ston <- z %in% ston.clusters
       ## sapply(stons, function(i) sum(x == x[which(z1 == i)]))
       ux <- unique(x)
       if(rev) ston.clusters <- rev(ston.clusters)
+      i <- 1
       for(k in ston.clusters) {
           in.cluster <- z == k
           stopifnot(sum(in.cluster) == 1)
           seq <- x[in.cluster]
-          cat(k, ":")
-          cat(length(agrep(seq, ux, max.distance=list(insert=0,del=0,all=1))), "\n")
+          arity <- length(agrep(seq, ux, max.distance=list(insert=0,del=0,all=1)))
+          if(arity != 1)
+              stop("Agrep finds", arity, "close sequences to supposedly singleton sequence", which(in.cluster))
+          if((i <- i+1) %% printout == 0) cat(i, "\r", sep="")
       }
+      if(i >= printout) cat("\n")
   }
 #+end_src
-***** Compare results with reversed input
+*** Compare results with reversed input
 #+begin_src sh
 tac ../combined > combined-reversed
 quickclust -c 20 -d 4 < combined-reversed | tac > clusters-all-c20-d4-rev
