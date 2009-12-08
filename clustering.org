@@ -114,7 +114,7 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
           *root = newNode(1), *v,
           *nodestack = newNode(NODE_STACK_SIZE),
           *nodestack_end = nodestack + NODE_STACK_SIZE ;
-      int i, c, ic, j, d, n, k, dmax=-1, numseqs ;
+      int i, c, ic, j, d, k, linelen, dmax=-1, numseqs ;
   
       while((c = getopt(argc, argv, "c:d:o:v")) != -1) {
           switch(c) {
@@ -129,9 +129,9 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
       malloc_arrays() ;
   
       i = K = 0 ;
-      while( (n = getline(&seq, &maxlinelength, stdin)) > 0 ) {
-          if( --n < seqlen )
-              error("Seq %d has %d characters (should be at least %d)\n", i+1, n, seqlen) ;
+      while( (linelen = getline(&seq, &maxlinelength, stdin)) > 0 ) {
+          if( (linelen - 1) < seqlen )
+              error("Line %d has %d characters (should be at least %d)\n", i+1, linelen, seqlen) ;
           
           /* First, check if identical sequence has been seen before. */
           encode(seq, seqlen, iseq) ;
