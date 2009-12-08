@@ -482,7 +482,7 @@ tac ../combined > combined-reversed
 quickclust -c 20 -d 4 < combined-reversed | tac > clusters-all-c20-d4-rev
 #+end_src
 
-***** This may be confused
+*** This may be confused
 #+begin_src R
   file <- "/data/shared/Hpy_parsed_as_Nde/combined"
   x <- read.seqs.2(file, 20) 
