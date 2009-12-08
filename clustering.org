@@ -32,45 +32,6 @@ TCATGGAGTTTTAAAATCTTATCTTAAAGTTATAGAAATTAAAAAAACACTGTGTATGAGTAGTGTAA
 CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
 #+end_example
 
-* Read sequences into R
-#+begin_src R
-  read.sequences <- function(file) {
-      cat(date(), "\tReading sequences")
-      x <- scan(file, what="", quiet=TRUE)
-      x <- strsplit(x, "")
-      cat("\n")
-      
-      lengths <- sapply(x, length)
-      min.length <- min(lengths)
-      cat(date(), "\tDiscarding all but initial", min.length, "bases")
-      x <- lapply(x, "[", 1:min.length)
-      cat("\n")
-      
-      cat(date(), "\tConverting to matrix format (each column is one sequence)")
-      ## x <- matrix(as.integer(unlist(x)), ncol=nseqs, nrow=min.length)
-      x <- matrix(unlist(x), nrow=length(x), ncol=min.length, byrow=TRUE)
-      cat("\n")
-      
-      x
-  }
-  
-  read.seqs.2 <- function(file, nchar)
-      scan(pipe(sprintf("cut -c1-%d < %s", nchar, file)), what="")
-#+end_src
-
-#+begin_src R 
-  library(RColorBrewer, lib="~/lib/R")
-  library(TraMineR, lib="~/lib/R")
-  
-  file <- "/data/shared/Hpy_parsed_as_Nde/combined"
-  ## x <- read.sequences(pipe(sprintf("head -n 10000 < %s", file)))
-  x <- read.sequences(file)
-  x <- x[,1:20]
-  sx <- seqdef(x)
-  dx <- seqdist(sx, method="HAM", with.miss=TRUE, full.matrix=FALSE)
-  summary(dx)
-#+end_src
-
 * Simple clustering in C
 *** Algorithm
   The C code implements the following algorithm:
@@ -390,45 +351,115 @@ tg
    14    15    16    17    18    19    20 
   220   174   167   133   131    96   104 
 #+end_example
-***** singletons
-******* check that singletons really are
-#+begin_src R
-  stopifnot(sum(x == x[which(g1 == as.integer(names(tg1)[max(which(tg1 == 1))]))]) == 1)
+* Validation
+***** R implementation of same clustering procedure
+#+begin_src R 
+  library(RColorBrewer, lib="~/lib/R")
+  library(TraMineR, lib="~/lib/R")
   
-  check.singletons <- function(x, g) {
-      tg <- table(g)
-      ston.clusters <- as.integer(names(tg)[which(tg == 1)])
-      ## in.ston <- g %in% ston.clusters
-      ## sapply(stons, function(i) sum(x == x[which(g1 == i)]))
-      for(k in ston.clusters) {
-          in.cluster <- g == k
-          stopifnot(sum(in.cluster) == 1)
-          seq <- x[in.cluster]
-          cat(k, ":")
-          cat(length(agrep(seq, x, max.distance=4)), "\n")
-      }
+  ## file <- "/data/shared/Hpy_parsed_as_Nde/combined"
+  ## x <- read.sequences(pipe(sprintf("head -n 10000 < %s", file)))
+  get.dist <- function(file, c) {
+      x <- read.sequences(file)
+      x <- x[,1:c]
+      sx <- seqdef(x)
+      seqdist(sx, method="HAM", with.miss=TRUE, full.matrix=FALSE)
   }
   
-  check.arity <- function(x, g, d, arity, file) {
-      if(!missing(file)) {
+  cluster <- function(dx, d) {
+      n <- attr(dx, "Size")
+      clusters <- rep(NA, n)
+      k <- 1
+      for(i in 1:n) {
+          if(i %% 10 == 0) cat(i, "\r")
+          close <- dx[i,] <= d
+          close.clusters <- clusters[close]
+          close.clusters <- close.clusters[!is.na(close.clusters)]
+          if(length(close.clusters) > 0) {
+              oldk <- min(close.clusters)
+              clusters[close] <- oldk
+          }
+          else {
+              clusters[close] <- k
+              k <- k+1
+          }
+      }
+      cat("\n")
+      clusters
+  }
+  
+  cluster.C <- function(file, c, d)
+      scan(pipe(sprintf("quickclust -c %d -d %d < %s", c, d, file)), what=integer())
+  
+  
+  check <- function(file, c, d) {
+      dx <- get.dist(file, c)
+      R <- cluster(dx, d)
+      C <- cluster.C(file, c, d)
+      print(table(R == C))
+      print(table(table(R) == table(C)))
+      cbind(R=R, C=C)
+  }
+  
+  relabel <- function(z)
+      as.integer(factor(z, levels=sort(unique(z))))
+#+end_src
+***** Check arity
+#+begin_src R
+  check.arity <- function(x, z, d, arity=1, file, quiet=TRUE) {
+      if(!quiet && !missing(file)) {
           file <- file(file)
           sink(file)
       }
-      tg <- table(g)
-      for(i in seq_along(g)) {
-          k <- g[i]
-          count.quickclust <- sum(g == k)
+      n <- length(z)
+      ans <- matrix(NA, nrow=n, ncol=2, dimnames=list(NULL, c("C","R")))
+      
+      tz <- table(z)
+      for(i in seq_along(z)) {
+          k <- z[i]
+          count.quickclust <- sum(z == k)
           if(!missing(arity) && count.quickclust != arity) next
-          cat(i, "\t", k, "\t")
-          cat(count.quickclust, "\t")
-          count.agrep <- length(agrep(x[i], x, max.distance=d))
-          cat(count.agrep, "\n")
-          if(!missing(file)) flush(file)
+          if(!quiet) {
+              cat(i, "\t", k, "\t")
+              cat(count.quickclust, "\t")
+          }
+          count.agrep <- length(agrep(x[i], x, max.distance=list(insert=0,del=0,all=d)))
+          if(!quiet) {
+              cat(count.agrep, "\n")
+              if(!missing(file)) flush(file)
+          }
+          ans[i,] <- c(count.quickclust, count.agrep)
+          if(i %% 100 == 0) cat(i, "\r", sep="")
+      }
+      cat("\n")
+      ans
+  }
+  
+  ## stopifnot(sum(x == x[which(g1 == as.integer(names(tg1)[max(which(tg1 == 1))]))]) == 1)
+  
+  check.singletons <- function(x, z, rev=FALSE) {
+      tz <- table(z)
+      ston.clusters <- as.integer(names(tz)[which(tz == 1)])
+      ## in.ston <- z %in% ston.clusters
+      ## sapply(stons, function(i) sum(x == x[which(z1 == i)]))
+      ux <- unique(x)
+      if(rev) ston.clusters <- rev(ston.clusters)
+      for(k in ston.clusters) {
+          in.cluster <- z == k
+          stopifnot(sum(in.cluster) == 1)
+          seq <- x[in.cluster]
+          cat(k, ":")
+          cat(length(agrep(seq, ux, max.distance=list(insert=0,del=0,all=1))), "\n")
       }
   }
 #+end_src
+***** Compare results with reversed input
+#+begin_src sh
+tac ../combined > combined-reversed
+quickclust -c 20 -d 4 < combined-reversed | tac > clusters-all-c20-d4-rev
+#+end_src
 
-******* This may be confused
+***** This may be confused
 #+begin_src R
   file <- "/data/shared/Hpy_parsed_as_Nde/combined"
   x <- read.seqs.2(file, 20) 
@@ -446,13 +477,31 @@ tg
   
   close <- agrep(xi, ux, useBytes=TRUE, max.distance=4)
 #+end_src
-
-*** Validation
-***** Compare results with reversed input
-
-#+begin_src sh
-tac ../combined > combined-reversed
-quickclust -c 20 -d 4 < combined-reversed | tac > clusters-all-c20-d4-rev
+* Read sequences into R
+#+begin_src R :session *shell*
+  read.sequences <- function(file) {
+      cat(date(), "\tReading sequences")
+      x <- scan(file, what="", quiet=TRUE)
+      x <- strsplit(x, "")
+      
+      cat("\n")
+      
+      lengths <- sapply(x, length)
+      min.length <- min(lengths)
+      cat(date(), "\tDiscarding all but initial", min.length, "bases")
+      x <- lapply(x, "[", 1:min.length)
+      cat("\n")
+      
+      cat(date(), "\tConverting to matrix format (each column is one sequence)")
+      ## x <- matrix(as.integer(unlist(x)), ncol=nseqs, nrow=min.length)
+      x <- matrix(unlist(x), nrow=length(x), ncol=min.length, byrow=TRUE)
+      cat("\n")
+      
+      x
+  }
+  
+  read.seqs.2 <- function(file, nchar)
+      scan(pipe(sprintf("cut -c1-%d < %s", nchar, file)), what="")
 #+end_src
 
 * Split input into clusters
