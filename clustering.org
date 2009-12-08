@@ -86,6 +86,7 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
   
   void make_new_cluster(char *seq) ;
   void add_to_cluster(char *seq, int k) ;
+  void merge_clusters(int source, int sink) ;
   void realloc_cluster_arrays() ;
   void malloc_arrays() ;
   
@@ -154,7 +155,9 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
                           add_to_cluster(seq, k) ;
                           gotit = true ;
                       }
-                      map[k] = v->cluster ;
+                      /* Now, all the clusters that were equivalent to k
+                         (i.e. map[k]), must be made equivalent to cluster[i] */
+                      merge_clusters(map[k], cluster[i]) ;
                       if(verbose) fprintf(stderr, "%d: close to canonical sequence (%d) \n", i+1, k+1) ;
                   }
                   else if( d <= 2*dmax ) {
@@ -168,7 +171,9 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
                                   memcpy(sequence[k][size[k]], seq, seqlen * sizeof(char)) ;
                                   gotit = true ;
                               }
-                              map[k] = cluster[i] ;
+                              /* Now, all the clusters that were equivalent to k
+                                 (i.e. map[k]), must be made equivalent to cluster[i] */
+                              merge_clusters(map[k], cluster[i]) ;
                               if(verbose)
                                   fprintf(stderr, "%d: close to non-canonical sequence %d of cluster (%d)\n", i+1, j+1, k+1) ;
                               break ;                             /* No need to check other cluster members */
@@ -199,6 +204,12 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
       free(cluster) ;
       free(map) ;
       return 0 ;
+  }
+  
+  void merge_clusters(int source, int sink) {
+      int k ;
+      for(k = 0 ; k < K ; k++)
+          if(map[k] == source) map[k] = sink ;
   }
   
   void make_new_cluster(char *seq) {
