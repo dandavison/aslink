@@ -89,6 +89,7 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
   void merge_clusters(int source, int sink) ;
   void realloc_cluster_arrays() ;
   void malloc_arrays() ;
+  void write_cluster_files(char *outdir) ;
   
   /* Globals */
   int K ;
@@ -108,16 +109,18 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
       size_t maxlinelength=0 ;       /* and increments maxlinelength. */
       char *canon ;
       bool gotit, verbose=false ;
+      char *outdir = NULL ;
       struct node
           *root = newNode(1), *v,
           *nodestack = newNode(NODE_STACK_SIZE),
           *nodestack_end = nodestack + NODE_STACK_SIZE ;
       int i, c, ic, j, d, n, k, dmax=-1, numseqs ;
   
-      while((c = getopt(argc, argv, "c:d:v")) != -1) {
+      while((c = getopt(argc, argv, "c:d:o:v")) != -1) {
           switch(c) {
           case 'c': seqlen = atoi(optarg) ; break ;
           case 'd': dmax = atoi(optarg) ; break ;
+          case 'o': outdir = optarg ; break ;
           case 'v': verbose = true ; break ;
           case '?': usage() ;
           }
@@ -196,8 +199,11 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
           }
       }
    
-      for(numseqs = i, i = 0 ; i < numseqs ; ++i)
-          printf("%d\n", map[cluster[i]] + 1) ;
+      for(numseqs = i, i = 0 ; i < numseqs ; ++i) printf("%d\n", map[cluster[i]] + 1) ;
+      printf("\n") ;
+      for(k = 0 ; k < K ; k++) printf("%5d\t%5d\t%5d\n", k, map[k], size[k]) ;
+  
+      if(outdir != NULL) write_cluster_files(outdir) ;
   
       free(canonical_member) ;
       free(iseq) ;
@@ -208,6 +214,19 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
   
   void merge_clusters(int source, int sink) {
       int k ;
+  void write_cluster_files(char *outdir) {
+      int j, k ;
+      char buf[1000] ;
+      FILE *f ;
+  
+      for(k = 0 ; k < K ; k++) {
+          sprintf(buf, "%s/%05d", outdir, map[k]) ;
+          f = fopen(buf, "a") ;
+          if(f == NULL) error("Failed to open file %s:", buf) ;
+          for(j = 0 ; j < size[k] ; j++) fprintf(f, "%s", sequence[k][j]) ;
+      }
+  }
+  
       for(k = 0 ; k < K ; k++)
           if(map[k] == source) map[k] = sink ;
   }
