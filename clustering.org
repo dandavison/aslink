@@ -161,7 +161,6 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
                       /* Now, all the clusters that were equivalent to k
                          (i.e. map[k]), must be made equivalent to cluster[i] */
                       merge_clusters(map[k], cluster[i]) ;
-                      if(verbose) fprintf(stderr, "%d: close to canonical sequence (%d) \n", i+1, k+1) ;
                   }
                   else if( d <= 2*dmax ) {
                       /* Check whether sequence is close to one of the cluster members */
@@ -176,8 +175,6 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
                               /* Now, all the clusters that were equivalent to k
                                  (i.e. map[k]), must be made equivalent to cluster[i] */
                               merge_clusters(map[k], cluster[i]) ;
-                              if(verbose)
-                                  fprintf(stderr, "%d: close to non-canonical sequence %d of cluster (%d)\n", i+1, j+1, k+1) ;
                               break ;                             /* No need to check other cluster members */
                           }
                       }
@@ -186,11 +183,9 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
               if(cluster[i] == NA) {
                   /* Not seen before and not close to any member of any existing cluster. */
                   cluster[i] = v->cluster = map[K] = K ;
-                  if(verbose) fprintf(stderr, "%d: new cluster (%d)\n", i+1, cluster[i]+1) ;
                   make_new_cluster(seq) ;
               }
           }
-          else if(verbose) fprintf(stderr, "%d: seen before (cluster %d)\n", i+1, cluster[i]+1) ;
           if(i % 10000 == 0 && i > 0) fprintf(stderr, "%6d\r", i) ;
           if(++i == maxseqs) {
               maxseqs *= GROWFAC ;
