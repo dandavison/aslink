@@ -56,7 +56,6 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
               assign i to new cluster
 #+end_src
 		  
-
 *** C code
 #+begin_src C :tangle quickclust.c
   #include <stdlib.h>
@@ -88,6 +87,7 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
   void make_new_cluster(char *seq) ;
   void add_to_cluster(char *seq, int k) ;
   void realloc_cluster_arrays() ;
+  void malloc_arrays() ;
   
   /* Globals */
   int K ;
@@ -99,48 +99,35 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
   char ***sequence ;             /* sequence[k][j] is unique sequence j in cluster k */
   char *canonical_member ;
   int *cluster, *map, *size ;
+  int *iseq ;                    /* integer-encoded sequence */           
   
   
   int main(int argc, char **argv) {
       char *seq=NULL ;              /* getline automatically mallocs and reallocs seq */
       size_t maxlinelength=0 ;       /* and increments maxlinelength. */
       char *canon ;
-      bool gotit ;
-      int *iseq ;                    /* integer-encoded sequence */           
+      bool gotit, verbose=false ;
       struct node
           *root = newNode(1), *v,
           *nodestack = newNode(NODE_STACK_SIZE),
           *nodestack_end = nodestack + NODE_STACK_SIZE ;
       int i, c, ic, j, d, n, k, dmax=-1, numseqs ;
   
-      while((c = getopt(argc, argv, "c:d:")) != -1) {
+      while((c = getopt(argc, argv, "c:d:v")) != -1) {
           switch(c) {
           case 'c': seqlen = atoi(optarg) ; break ;
           case 'd': dmax = atoi(optarg) ; break ;
+          case 'v': verbose = true ; break ;
           case '?': usage() ;
           }
       }
       if(seqlen <= 0 || dmax < 0) usage() ;
-      iseq = (int *) malloc(seqlen * sizeof(int)) ;
-      cluster = (int *) malloc(maxseqs * sizeof(int)) ;
+      malloc_arrays() ;
   
-      canonical_member  = (char *) malloc(maxclusts * seqlen * sizeof(char)) ;
-      map = (int *) malloc(maxclusts * sizeof(int)) ;
-      size = (int *) calloc(maxclusts, sizeof(int)) ;
-  
-      clustermaxseqs = (int *) malloc(maxclusts * sizeof(int)) ;
-      sequence = (char ***) malloc(maxclusts * sizeof(char **)) ;
-      for(k = 0 ; k < maxclusts ; ++k) {
-          clustermaxseqs[k] = 1 ;
-          sequence[k] = (char **) malloc(clustermaxseqs[k] * sizeof(char *)) ;
-          for(j = 0 ; j < clustermaxseqs[k] ; ++j)
-              sequence[k][j] = (char *) malloc(seqlen * sizeof(char)) ;
-      }
-      
       i = K = 0 ;
       while( (n = getline(&seq, &maxlinelength, stdin)) > 0 ) {
           if( --n < seqlen )
-              error("Seq %d has %d characters (should be at least %d)\n", i, n, seqlen) ;
+              error("Seq %d has %d characters (should be at least %d)\n", i+1, n, seqlen) ;
           
           /* First, check if identical sequence has been seen before. */
           encode(seq, seqlen, iseq) ;
@@ -161,14 +148,14 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
               gotit = false ;
               for(canon = canonical_member, k = 0 ; k < K ; k++, canon += seqlen) {
                   for(d = 0, c = 0 ; c < seqlen ; c++) if(seq[c] != canon[c]) d++ ;
-                  if( d <= dmax ) {
+                  if(d <= dmax ) {
                       if(!gotit) {
                           cluster[i] = v->cluster = k ;
                           add_to_cluster(seq, k) ;
                           gotit = true ;
                       }
                       map[k] = v->cluster ;
-                      // fprintf(stderr, "%d: close to canonical sequence (%d) \n", i, k) ;
+                      if(verbose) fprintf(stderr, "%d: close to canonical sequence (%d) \n", i+1, k+1) ;
                   }
                   else if( d <= 2*dmax ) {
                       /* Check whether sequence is close to one of the cluster members */
@@ -182,7 +169,8 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
                                   gotit = true ;
                               }
                               map[k] = cluster[i] ;
-                              // fprintf(stderr, "%d: close to non-canonical sequence %d of cluster (%d)\n", i, j, k) ;
+                              if(verbose)
+                                  fprintf(stderr, "%d: close to non-canonical sequence %d of cluster (%d)\n", i+1, j+1, k+1) ;
                               break ;                             /* No need to check other cluster members */
                           }
                       }
@@ -191,11 +179,11 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
               if(cluster[i] == NA) {
                   /* Not seen before and not close to any member of any existing cluster. */
                   cluster[i] = v->cluster = map[K] = K ;
-                  // fprintf(stderr, "%d: new cluster (%d)\n", i, cluster[i]) ;
+                  if(verbose) fprintf(stderr, "%d: new cluster (%d)\n", i+1, cluster[i]+1) ;
                   make_new_cluster(seq) ;
               }
           }
-          //else fprintf(stderr, "%d: seen before (cluster %d)\n", i, cluster[i]) ;
+          else if(verbose) fprintf(stderr, "%d: seen before (cluster %d)\n", i+1, cluster[i]+1) ;
           if(i % 10000 == 0 && i > 0) fprintf(stderr, "%6d\r", i) ;
           if(++i == maxseqs) {
               maxseqs *= GROWFAC ;
@@ -249,6 +237,26 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
               sequence[k][j] = (char *) malloc(seqlen * sizeof(char)) ;
       }
   }
+  
+  
+  void malloc_arrays() {
+      int j, k ;
+  
+      iseq = (int *) malloc(seqlen * sizeof(int)) ;
+      cluster = (int *) malloc(maxseqs * sizeof(int)) ;
+      canonical_member  = (char *) malloc(maxclusts * seqlen * sizeof(char)) ;
+      map = (int *) malloc(maxclusts * sizeof(int)) ;
+      size = (int *) calloc(maxclusts, sizeof(int)) ;
+  
+      clustermaxseqs = (int *) malloc(maxclusts * sizeof(int)) ;
+      sequence = (char ***) malloc(maxclusts * sizeof(char **)) ;
+      for(k = 0 ; k < maxclusts ; ++k) {
+          clustermaxseqs[k] = 1 ;
+          sequence[k] = (char **) malloc(clustermaxseqs[k] * sizeof(char *)) ;
+          for(j = 0 ; j < clustermaxseqs[k] ; ++j)
+              sequence[k][j] = (char *) malloc(seqlen * sizeof(char)) ;
+      }
+  }    
   
   
   void encode(char *seq, int seqlen, int *iseq) {
@@ -331,7 +339,6 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
   ttg1 <- table(tg1)
   ttg2 <- table(tg2)
 #+end_src
-
 ***** Merged
 #+begin_example
 > g <- scan("/home/dan/pa/Papilio/clusters-all-c20-d4-merge", what=integer())
