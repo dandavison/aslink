@@ -596,6 +596,29 @@ quickclust -c 20 -d 4 < combined-reversed | tac > clusters-all-c20-d4-rev
   done
 #+end_src
 
+* Form consensi
+#+begin_src R 
+  dir <- "clusters"
+  clusters <- lapply(file.path(dir, list.files(dir)), scan, what="", quiet=TRUE)
+  clusters <- lapply(clusters, strsplit, "")
+  maxlengths <- sapply(clusters, function(cc) max(sapply(cc, length)))
+  consensus <- list()
+  most.frequent.element <- function(v) {
+      tab <- table(v)
+      names(tab)[which.max(tab)]
+  }
+  for(i in seq_along(clusters)) {
+      if(i %% 100 == 0) cat(i, "\r")
+      cluster <- clusters[[i]]
+      size <- length(cluster)
+      mat <- matrix(NA, nrow=maxlengths[i], ncol=size)
+      idx <- unlist(lapply(1:size, function(j) ((j-1) * maxlengths[i]) + (1:length(cluster[[j]]))))
+      mat[idx] <- unlist(cluster)
+      consensus[[i]] <- apply(mat, 1, most.frequent.element)
+  }
+  cat("\n")
+#+end_src
+
 * An incomplete attempt in R
     The idea here was to use various sorting heuristics, eliminate
     duplicate sequences that occur consecutively in the sorted output,
