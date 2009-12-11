@@ -572,9 +572,8 @@ quickclust -c 20 -d 4 < combined-reversed | tac > clusters-all-c20-d4-rev
 
 *** R
 #+begin_src R 
-  file <- "/data/shared/Hpy_parsed_as_Nde/combined"
-  x <- scan(file, what="")
-  z <- scan("Z", what=integer())
+  x <- scan("ux", what="")
+  z <- scan("uz-d3-n1", what=integer())
   split.sequences <- function(x, z, dir) {
       for(k in unique(z)) {
           if(k %% 100 == 0) cat(k, "\r")
@@ -582,8 +581,6 @@ quickclust -c 20 -d 4 < combined-reversed | tac > clusters-all-c20-d4-rev
       }
       cat("\n")
   }
-  
-  dup <- duplicated(x)
 #+end_src
 *** sed
     This is too slow
