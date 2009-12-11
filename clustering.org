@@ -107,7 +107,7 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
   int main(int argc, char **argv) {
       char *seq=NULL ;              /* getline automatically mallocs and reallocs seq */
       size_t maxlinelength=0 ;       /* and increments maxlinelength. */
-      char *canon ;
+      char *canon, seq_c, canon_c, seq_kjc ;
       bool gotit, verbose=false ;
       char *outdir = NULL ;
       struct node
@@ -158,7 +158,11 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
               /* Sequence not seen before; compare with canonical sequences. */
               gotit = false ;
               for(canon = canonical_member, k = 0 ; k < K ; k++, canon += seqlen) {
-                  for(d = 0, c = 0 ; c < seqlen ; c++) if(seq[c] != canon[c]) d++ ;
+                  for(d = 0, c = 0 ; c < seqlen ; c++) {
+                      if( (seq_c = seq[c]) == 'N') continue ;
+                      if( (canon_c = canon[c]) == 'N') continue ;
+                      if(seq_c != canon_c) d++ ;
+                  }
                   if(d <= dmax ) {
                       if(!gotit) {
                           cluster[i] = v->cluster = k ;
@@ -172,7 +176,11 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
                   else if( d <= 2*dmax ) {
                       /* Check whether sequence is close to one of the cluster members */
                       for(j = 0 ; j < size[k] ; ++j) {
-                          for(d = 0, c = 0 ; c < seqlen ; c++) if(seq[c] != sequence[k][j][c]) d++ ;
+                          for(d = 0, c = 0 ; c < seqlen ; c++) {
+                              if( (seq_c = seq[c]) == 'N') continue ;
+                              if( (seq_kjc = sequence[k][j][c]) == 'N') continue ;
+                              if(seq_c != seq_kjc) d++ ;
+                          }
                           if( d <= dmax ) {
                               if(!gotit) {
                                   cluster[i] = v->cluster = k ;
