@@ -137,68 +137,66 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
           
           /* First, check if identical sequence has been seen before. */
           nmiss = encode(seq, seqlen, iseq) ;
-          if(nmiss > missing_threshold) {
-              cluster[i] = NA ;
-              continue ;
-          }
-          
-          for(v = root, c = 0 ; c < seqlen ; c++) {
-              ic = iseq[c] ;
-              if(v->d[ic] == NULL) {
-                  if(nodestack == nodestack_end) {
-                      nodestack = newNode(NODE_STACK_SIZE) ;
-                      nodestack_end = nodestack + NODE_STACK_SIZE ;
-                  }
-                  v->d[ic] = nodestack++ ;
-              }
-              v = v->d[ic] ;
-          }
-          cluster[i] = v->cluster ;
-          if( cluster[i] == NA ) {
-              /* Sequence not seen before; compare with canonical sequences. */
-              gotit = false ;
-              for(canon = canonical_member, k = 0 ; k < K ; k++, canon += seqlen) {
-                  for(d = 0, c = 0 ; c < seqlen ; c++) {
-                      if( (seq_c = seq[c]) == 'N') continue ;
-                      if( (canon_c = canon[c]) == 'N') continue ;
-                      if(seq_c != canon_c) d++ ;
-                  }
-                  if(d <= dmax ) {
-                      if(!gotit) {
-                          cluster[i] = v->cluster = k ;
-                          add_to_cluster(seq, k) ;
-                          gotit = true ;
+          if(nmiss > missing_threshold) cluster[i] = NA ;
+          else {
+              for(v = root, c = 0 ; c < seqlen ; c++) {
+                  ic = iseq[c] ;
+                  if(v->d[ic] == NULL) {
+                      if(nodestack == nodestack_end) {
+                          nodestack = newNode(NODE_STACK_SIZE) ;
+                          nodestack_end = nodestack + NODE_STACK_SIZE ;
                       }
-                      /* Now, all the clusters that were equivalent to k
-                         (i.e. map[k]), must be made equivalent to cluster[i] */
-                      merge_clusters(map[k], cluster[i]) ;
+                      v->d[ic] = nodestack++ ;
                   }
-                  else if( d <= 2*dmax ) {
-                      /* Check whether sequence is close to one of the cluster members */
-                      for(j = 0 ; j < size[k] ; ++j) {
-                          for(d = 0, c = 0 ; c < seqlen ; c++) {
-                              if( (seq_c = seq[c]) == 'N') continue ;
-                              if( (seq_kjc = sequence[k][j][c]) == 'N') continue ;
-                              if(seq_c != seq_kjc) d++ ;
+                  v = v->d[ic] ;
+              }
+              cluster[i] = v->cluster ;
+              if( cluster[i] == NA ) {
+                  /* Sequence not seen before; compare with canonical sequences. */
+                  gotit = false ;
+                  for(canon = canonical_member, k = 0 ; k < K ; k++, canon += seqlen) {
+                      for(d = 0, c = 0 ; c < seqlen ; c++) {
+                          if( (seq_c = seq[c]) == 'N') continue ;
+                          if( (canon_c = canon[c]) == 'N') continue ;
+                          if(seq_c != canon_c) d++ ;
+                      }
+                      if(d <= dmax ) {
+                          if(!gotit) {
+                              cluster[i] = v->cluster = k ;
+                              add_to_cluster(seq, k) ;
+                              gotit = true ;
                           }
-                          if( d <= dmax ) {
-                              if(!gotit) {
-                                  cluster[i] = v->cluster = k ;
-                                  add_to_cluster(seq, k) ;
-                                  gotit = true ;
+                          /* Now, all the clusters that were equivalent to k
+                             (i.e. map[k]), must be made equivalent to cluster[i] */
+                          merge_clusters(map[k], cluster[i]) ;
+                      }
+                      else if( d <= 2*dmax ) {
+                          /* Check whether sequence is close to one of the cluster members */
+                          for(j = 0 ; j < size[k] ; ++j) {
+                              for(d = 0, c = 0 ; c < seqlen ; c++) {
+                                  if( (seq_c = seq[c]) == 'N') continue ;
+                                  if( (seq_kjc = sequence[k][j][c]) == 'N') continue ;
+                                  if(seq_c != seq_kjc) d++ ;
                               }
-                              /* Now, all the clusters that were equivalent to k
-                                 (i.e. map[k]), must be made equivalent to cluster[i] */
-                              merge_clusters(map[k], cluster[i]) ;
-                              break ;                             /* No need to check other cluster members */
+                              if( d <= dmax ) {
+                                  if(!gotit) {
+                                      cluster[i] = v->cluster = k ;
+                                      add_to_cluster(seq, k) ;
+                                      gotit = true ;
+                                  }
+                                  /* Now, all the clusters that were equivalent to k
+                                     (i.e. map[k]), must be made equivalent to cluster[i] */
+                                  merge_clusters(map[k], cluster[i]) ;
+                                  break ;                             /* No need to check other cluster members */
+                              }
                           }
                       }
                   }
-              }
-              if(cluster[i] == NA) {
-                  /* Not seen before and not close to any member of any existing cluster. */
-                  cluster[i] = v->cluster = map[K] = K ;
-                  make_new_cluster(seq) ;
+                  if(cluster[i] == NA) {
+                      /* Not seen before and not close to any member of any existing cluster. */
+                      cluster[i] = v->cluster = map[K] = K ;
+                      make_new_cluster(seq) ;
+                  }
               }
           }
           if(i % 10000 == 0 && i > 0) fprintf(stderr, "%6d\r", i) ;
@@ -355,7 +353,7 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
   }
   
   void usage() {
-      error("quickclust -c numchars -d maxdiff") ;
+      error("quickclust -c numchars -d maxdiff [-n maxmiss]") ;
   }
 #+end_src
   
