@@ -133,7 +133,7 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
       i = K = 0 ;
       while( (linelen = getline(&seq, &maxlinelength, stdin)) > 0 ) {
           if( (linelen - 1) < seqlen )
-              error("Line %d has %d characters (should be at least %d)\n", i+1, linelen, seqlen) ;
+              error("Line %d has %d characters (should be at least %d)\n", i+1, linelen-1, seqlen) ;
           
           /* First, check if identical sequence has been seen before. */
           nmiss = encode(seq, seqlen, iseq) ;
