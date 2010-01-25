@@ -553,6 +553,7 @@ int get_line(char **lineptr, size_t *n, FILE *stream);
   
   /* END get_line.c */
 #+end_src
+  aslink: get_line.c
 
 #+begin_src makefile :tangle makefile
   CFLAGS = -O2 -Wall
