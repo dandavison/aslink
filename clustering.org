@@ -261,6 +261,7 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
           clustermaxseqs[k] = 1 ;
           sequence[k] = (char **) malloc(clustermaxseqs[k] * sizeof(char *)) ;
           for(j = 0 ; j < clustermaxseqs[k] ; ++j)
+          size[k] = 0 ;
               sequence[k][j] = (char *) malloc(seqlen * sizeof(char)) ;
       }
   }
