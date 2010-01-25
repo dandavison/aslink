@@ -57,7 +57,7 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
 #+end_src
 		  
 *** C code
-#+begin_src C :tangle quickclust.c
+#+begin_src C :tangle aslink.c
   #include <stdlib.h>
   #include <stdio.h>
   #include <assert.h>
@@ -353,14 +353,14 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
   }
   
   void usage() {
-      error("quickclust -c numchars -d maxdiff [-n maxmiss]") ;
+      error("aslink -c numchars -d maxdiff [-n maxmiss]\n") ;
   }
 #+end_src
   
 *** Makefile
 #+begin_src makefile :tangle makefile
   CFLAGS = -O2 -Wall
-  all:    quickclust
+  all:    aslink
 #+end_src
 *** Timing
 | code                             |    seqs |  c | d | clusters found | outfile        |      time |
@@ -438,7 +438,7 @@ tg
   }
   
   cluster.C <- function(file, c, d)
-      scan(pipe(sprintf("quickclust -c %d -d %d < %s", c, d, file)), what=integer())
+      scan(pipe(sprintf("aslink -c %d -d %d < %s", c, d, file)), what=integer())
   
   
   check <- function(file, c, d) {
@@ -466,18 +466,18 @@ tg
       tz <- table(z)
       for(i in seq_along(z)) {
           k <- z[i]
-          count.quickclust <- sum(z == k)
-          if(!missing(arity) && count.quickclust != arity) next
+          count.aslink <- sum(z == k)
+          if(!missing(arity) && count.aslink != arity) next
           if(!quiet) {
               cat(i, "\t", k, "\t")
-              cat(count.quickclust, "\t")
+              cat(count.aslink, "\t")
           }
           count.agrep <- length(agrep(x[i], x, max.distance=list(insert=0,del=0,all=d)))
           if(!quiet) {
               cat(count.agrep, "\n")
               if(!missing(file)) flush(file)
           }
-          ans[i,] <- c(count.quickclust, count.agrep)
+          ans[i,] <- c(count.aslink, count.agrep)
           if(i %% 100 == 0) cat(i, "\r", sep="")
       }
       cat("\n")
@@ -510,7 +510,7 @@ tg
 *** Compare results with reversed input
 #+begin_src sh
 tac ../combined > combined-reversed
-quickclust -c 20 -d 4 < combined-reversed | tac > clusters-all-c20-d4-rev
+aslink -c 20 -d 4 < combined-reversed | tac > clusters-all-c20-d4-rev
 #+end_src
 
 *** This may be confused
