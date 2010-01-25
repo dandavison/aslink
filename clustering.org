@@ -807,6 +807,17 @@ aslink -c 20 -d 4 < combined-reversed | tac > clusters-all-c20-d4-rev
   cat("\n")
 #+end_src
 
+* Blastclust
+#+begin_src sh 
+  nohup ~/bin/blast-2.2.21/bin/blastclust -W 5 -i consensi.fasta -p F -o blastclust.clusters -v blastclust.log -a 4 > blastclust.stdout.stderr 2>&1 &
+#+end_src
+* Dot matrix
+#+begin_src R 
+  cons.fasta <- "consensi.fasta"
+  cons <- scan(pipe(paste("grep -v '^>'", cons.fasta)), what="")
+  cons <- unlist(strsplit(paste(cons, collapse=""), split=""))
+#+end_src
+
 * An incomplete attempt in R
     The idea here was to use various sorting heuristics, eliminate
     duplicate sequences that occur consecutively in the sorted output,
