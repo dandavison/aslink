@@ -400,6 +400,161 @@ tg
    14    15    16    17    18    19    20 
   220   174   167   133   131    96   104 
 #+end_example
+*** getline
+#+begin_example 
+<ded> My code uses getline. It is not linking under OS X (undefined symbol
+      "_getline"). What's the best way to build my program under OS X?
+*** deadlock (n=deadlock@unaffiliated/deadlock) has joined channel ##C  [09:02]
+*** brad_mssw (n=brad@shop.monetra.com) has joined channel ##c  [09:03]
+*** dcope (n=dcope@unaffiliated/dcope) has joined channel ##c  [09:04]
+*** djinni` (n=djinni`@adsl-71-142-225-118.dsl.scrm01.pacbell.net) has joined
+    channel ##c
+*** cmaiolino (n=cmaiolin@189.79.95.108) has joined channel ##c
+*** Helpmy360isEMO (n=helpmyis@CPE-60-228-242-224.lns2.wel.bigpond.net.au) has
+    joined channel ##c
+*** gigasoft (n=gigasoft@95.155.3.234) has joined channel ##c  [09:08]
+*** techsurvivor (n=fenris@adsl-75-23-34-169.dsl.lgvwtx.sbcglobal.net) has
+    joined channel ##c
+*** zap0 (n=moofy@123-243-103-30.static.tpgi.com.au) has joined channel ##c
+*** osaunders (n=osaunder@host86-145-73-26.range86-145.btcentralplus.com) has
+    joined channel ##c
+*** THoRIX (n=THoRIX@cpc2-belf9-0-0-cust745.belf.cable.ntl.com) has joined
+    channel ##c  [09:09]
+*** cydork (n=vihang@unaffiliated/cydork) has joined channel ##C
+*** EnginA (n=engin@78.171.158.186) has quit: Read error: 110 (Connection
+    timed out)
+<nadder> ded, make sure you link with a library that includes the symbol
+	 _getline  [09:10]
+*** Riddle_Box (n=rewt@74-138-212-120.dhcp.insightbb.com) has quit: Read
+    error: 113 (No route to host)  [09:12]
+*** portn0k (n=portn0k@unaffiliated/portn0k) has joined channel ##c  [09:13]
+*** _unK (n=unknown@dynamic-78-8-149-137.ssp.dialog.net.pl) has joined channel
+    ##c
+*** forneus_ (n=forneus@77.255.127.36) has joined channel ##C  [09:14]
+*** Cyranix0r (n=bofh@76.73.0.10) has joined channel ##c  [09:16]
+<ded> nadder: And in practice, what's an easy way to accomplish that?
+      I.e. where can I find such a library or does such a library already
+      exist in standard OS X?
+*** micols (n=mio@rlogin.dk) has quit: "leaving"  [09:17]
+*** reprore_ (n=reprore@ntkngw356150.kngw.nt.ftth.ppp.infoweb.ne.jp) has
+    joined channel ##c
+*** micols (n=mio@rlogin.dk) has joined channel ##C  [09:18]
+<nadder> Well, you need to figure out where this getline comes from, cause as
+	 far as I know it is not a std c library function.
+*** rodfersou (n=Rodrigo@189.115.35.189) has quit: Remote closed the
+    connection
+<nadder> Maybe you're thinking of c++, it has a std::getline function, if so
+	 you should probably ask in ##c++  [09:19]
+<osaunders> I'm trying to compile some C that has already been preprocessed
+	    (by gcc -E ...) using "gcc -x c-cpp-output -std=c99 bar.c" but it
+	    says, among other things, "language c-cpp-output not recognized".
+<ded> nadder: ? The man page under linux says SYNOPSIS  [09:20]
+<ded> 	#define _GNU_SOURCE
+<ded> 	#include <stdio.h>
+<ded> 	ssize_t getline(char **lineptr, size_t *n, FILE *stream);
+<ded> 
+*** ChanServ (ChanServ@services.) has changed mode for ##c to +o candide
+*** candide (n=pbot2@blackshell.com) has changed mode for ##c to +b %ded!*@*
+<zap0> osaunders,  why did you pass it that?
+<osaunders> zap0: Because it doesn't work otherwise.
+*** candide (n=pbot2@blackshell.com) has changed mode for ##c to -b %ded!*@*
+<osaunders> You get lots of these "/usr/include/stdio.h:257: error:
+	    redefinition of parameter ‘restrict’" with -x c  [09:21]
+<zap0> you just said it doesn't work with it
+<osaunders> Yeah that's with -x c
+<osaunders> not -x c-cpp-output
+<nadder> ded, doesn't the man page also say what library it is defined in?
+*** zap0 (n=moofy@123-243-103-30.static.tpgi.com.au) has quit: 
+*** mankind_ (n=mankind@bl13-15-107.dsl.telepac.pt) has joined channel ##c
+*** sinBot (n=sinBot-v@user-0c8h8i0.cable.mindspring.com) has joined channel
+    ##c  [09:22]
+*** _moebius_ (n=moebius@host3-57-dynamic.16-79-r.retail.telecomitalia.it) has
+    joined channel ##c
+*** _unK (n=unknown@dynamic-78-8-149-137.ssp.dialog.net.pl) has quit: Remote
+    closed the connection
+<ded> nadder: I think it is in libc  [09:23]
+<valan> it is
+<valan> iirc
+*** kombucha (n=mars@mail.mnn.org) has joined channel ##c
+*** Jet_Blazer (n=JetBlaze@122.172.94.204) has joined channel ##c  [09:24]
+<nadder> ded, and you link with libc I assume?
+*** Proton23 (n=Proton23@p221120.vpn-dyn.FH-Koeln.DE) has quit: No route to
+    host
+*** lux` (i=lux`@151.95.191.185) has joined channel ##c  [09:25]
+*** ChanServ (ChanServ@services.) has changed mode for ##c to -o candide
+*** _unK (n=unknown@dynamic-78-8-149-137.ssp.dialog.net.pl) has joined channel
+    ##c
+*** _unK (n=unknown@dynamic-78-8-149-137.ssp.dialog.net.pl) has quit: Remote
+    closed the connection  [09:26]
+<ded> I mean I think it's in libc on a GNU system, but I think not on OS X.
+*** Shai5 (n=Shai@77.127.27.65) has joined channel ##c
+*** mnk200 (n=mankind@bl14-156-10.dsl.telepac.pt) has joined channel ##c
+<valan> does osx use glibc and support gnu extensions?
+*** timepilot (n=timepilo@c-24-91-16-174.hsd1.ma.comcast.net) has joined
+    channel ##c  [09:27]
+<osaunders> valan: no.
+*** mankind_ (n=mankind@bl13-15-107.dsl.telepac.pt) has quit: Read error: 60
+    (Operation timed out)
+<valan> well then there's the answer
+<osaunders> $ man getline # Gives: "No manual entry for getline" on my Mac OS
+	    X system.
+<ded> valan: thanks, but that's not quite true, since the question was "what's
+      the easiest way round this?" :)
+<valan> oh i was answering another question i guess heh
+<Dianora> OSX uses libc, not glibc  [09:28]
+<nadder> Is it really that useful a function?
+<Dianora> OSX is basically a BSD as far as users are concerned.
+<osaunders> Just use gets or fgetes
+<osaunders> *fgets
+*** FingonIreth_ (n=FingonIr@host8925186163.sskl.3s.pl) has quit: Remote
+    closed the connection
+<ded> nadder: yes, it reads a line of input and automatically reallocs the
+      buffer to cope with varying length of input lines.
+*** FingonIreth (n=FingonIr@host8925186163.sskl.3s.pl) has joined channel ##c
+								        [09:29]
+<koollman> isn't there a fgetln or something on *bsd systems anyway ?
+*** timepilot (n=timepilo@c-24-91-16-174.hsd1.ma.comcast.net) has quit: Client
+    Quit
+<nadder> ah, yeah thats boring to do yourself.
+*** timepilot (n=timepilo@c-24-91-16-174.hsd1.ma.comcast.net) has joined
+    channel ##c
+<orbitz> It's a fairly trivial function to implement on you rown
+<koollman> well, it's a waste of time to recode it, too :)  [09:30]
+<osaunders> koollman: gets
+*** Guest68322 (n=yarddog@adsl-99-141-71-95.dsl.chcgil.sbcglobal.net) has
+    quit: Read error: 110 (Connection timed out)
+<Dianora> Do not ever use gets() or I will eat your liver.
+<koollman> right
+<nadder> That was such an obvious troll attempt.  [09:31]
+<valan> well apparently getline() is part of posix 2008 standard, so bsd libc
+	will probably have it before too long
+<osaunders> zzzzz
+<valan> one could probably get drunk by eating my liver
+<koollman> ded: so, I checked, and yes, there's fgetln. which is similare
+	   enough, although you may want to do some kind of wrapper with ifdef
+	   magic around it.
+<Dianora>  Standard C Library (libc, -lc)
+<koollman> ded: and of course,
+	   http://www.iso-9899.info/wiki/Snippets#reading_a_line_from_a_stream_without_artificial_limits
+<Dianora> it's in my FreeBSD.
+<macbeth_> ded: gcc -std=c89 -o file file.c  [09:32]
+*** talin (i=daghenri@caracal.stud.ntnu.no) has quit: "bbl"  [09:33]
+*** Shai5 (n=Shai@77.127.27.65) has quit: Client Quit
+*** Sipingal (n=Sipingal@121.35.51.137) has joined channel ##c
+*** timepilot (n=timepilo@c-24-91-16-174.hsd1.ma.comcast.net) has quit:
+    "WeeChat 0.3.0"  [09:34]
+*** Sir_Ivan (n=Sir_Ivan@pool-98-108-131-213.ptldor.fios.verizon.net) has
+    quit: Client Quit  [09:35]
+*** _unK (n=unknown@dynamic-78-8-149-137.ssp.dialog.net.pl) has joined channel
+    ##c
+*** wuhy (i=chatzill@121.29.5.205) has quit: "ChatZilla 0.9.86 [Firefox
+    3.6/20100115144158]"
+*** age (n=evgeny@6-147-134-95.pool.ukrtel.net) has joined channel ##c
+*** neurodro1e (n=neurodro@cpe-76-180-165-187.buffalo.res.rr.com) has joined
+    channel ##c  [09:36]
+ERC> 
+#+end_example
+
 * Validation
 ***** R implementation of same clustering procedure
 #+begin_src R 
