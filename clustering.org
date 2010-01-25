@@ -207,7 +207,7 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
       }
    
       for(numseqs = i, i = 0 ; i < numseqs ; ++i)
-          printf("%d\n", map[cluster[i]] + 1) ;
+          printf("%d\n", cluster[i] == NA ? -1 : map[cluster[i]] + 1) ;
       
       if(outdir != NULL) {
           if(verbose) fprintf(stderr, "Writing clusters to %s\n", outdir) ;
