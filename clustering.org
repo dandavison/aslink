@@ -734,6 +734,41 @@ aslink -c 20 -d 4 < combined-reversed | tac > clusters-all-c20-d4-rev
       }
       cat("\n")
   }
+  
+  
+  gather <- function(x, z) {
+      K <- length(unique(z))
+      xx <- structure(rep(list(list()), K), names=unique(z))
+      for(i in seq_along(x)) {
+          k <- z[i]
+          xx[[k]][[length(xx[[k]]) + 1]] <- x[i]
+      }
+      xx
+  }
+  
+  split.sequences.2 <- function(linefile, groupsfile, dir) {
+      cat("reading")
+      x <- scan(linefile, what="")
+      z <- scan(groupsfile, what="")
+      cat("\ngathering")
+      xx <- gather(x,z)
+      cat("\nwriting")
+      for(k in names(xx))
+          cat(unlist(xx[[k]]), sep="\n", file=file.path(dir, k))
+      cat("\n")
+  }
+  
+  split.sequences.3 <- function(linefile, groupsfile, dir) {
+      cat("reading")
+      x <- scan(linefile, what="")
+      z <- scan(groupsfile, what="")
+      cat("\ngathering")
+      xx <- split(x, z)
+      cat("\nwriting")
+      for(k in names(xx))
+          cat(xx[[k]], sep="\n", file=file.path(dir, k))
+      cat("\n")
+  }
 #+end_src
 *** sed
     This is too slow
