@@ -479,77 +479,78 @@ int get_line(char **lineptr, size_t *n, FILE *stream);
 #+end_src
 ******* get_line.c
 #+begin_src C :tangle get_line.c
-/* http://www.mindspring.com/~pfilandr/C/get_line/get_line.c */
-/* BEGIN get_line.c */
-
-#include "get_line.h"
-
-#include <stdlib.h>
-#include <limits.h>
-
-int get_line(char **lineptr, size_t *n, FILE *stream)
-{
-    int rc;
-    void *p;
-    size_t count;
-    /*
-    ** The (char) casts in this function are not required
-    ** by the rules of the C programming language.
-    */
-    count = 0;
-    while ((rc = getc(stream)) != EOF 
-	   || (!feof(stream) && !ferror(stream))) 
-    {
-        ++count;
-        if (count == (size_t)-2) {
-            if (rc != '\n') {
-                (*lineptr)[count] = '\0'; 
-                (*lineptr)[count - 1] = (char)rc;
-            } else {
-                (*lineptr)[count - 1] = '\0'; 
-            }
-            break;
-        }
-        if (count + 2 > *n) {
-            p = realloc(*lineptr, count + 2);
-            if (p == NULL) {
-                if (*n > count) {
-                    if (rc != '\n') {
-                        (*lineptr)[count] = '\0'; 
-                        (*lineptr)[count - 1] = (char)rc;
-                    } else {
-                        (*lineptr)[count - 1] = '\0'; 
-                    }
-                } else {
-                    if (*n != 0) {
-                        **lineptr = '\0'; 
-                    }
-                    ungetc(rc, stream);
-                }
-                count = 0;
-                break;
-            }
-            *lineptr = p;
-            *n = count + 2;
-        }
-        if (rc != '\n') {
-            (*lineptr)[count - 1] = (char)rc;
-        } else {
-            (*lineptr)[count - 1] = '\0'; 
-            break;
-        }
-    }
-    if (rc != EOF || (!feof(stream) && !ferror(stream))) {
-        rc = INT_MAX > count ? count : INT_MAX;
-    } else {
-        if (*n > count) {
-            (*lineptr)[count] = '\0';
-        }
-    }
-    return rc;
-}
-
-/* END get_line.c */
+  /* http://www.mindspring.com/~pfilandr/C/get_line/get_line.c */
+  /* BEGIN get_line.c */
+  
+  #include "get_line.h"
+  
+  #include <stdlib.h>
+  #include <limits.h>
+  
+  int get_line(char **lineptr, size_t *n, FILE *stream)
+  {
+      int rc;
+      void *p;
+      size_t count;
+      /*
+      ** The (char) casts in this function are not required
+      ** by the rules of the C programming language.
+      */
+      count = 0;
+      while ((rc = getc(stream)) != EOF 
+             || (!feof(stream) && !ferror(stream))) 
+      {
+          ++count;
+          if (count == (size_t)-2) {
+              if (rc != '\n') {
+                  (*lineptr)[count] = '\0'; 
+                  (*lineptr)[count - 1] = (char)rc;
+              } else {
+                  (*lineptr)[count - 1] = '\0'; 
+              }
+              break;
+          }
+          if (count + 2 > *n) {
+              p = realloc(*lineptr, count + 2);
+              if (p == NULL) {
+                  if (*n > count) {
+                      if (rc != '\n') {
+                          (*lineptr)[count] = '\0'; 
+                          (*lineptr)[count - 1] = (char)rc;
+                      } else {
+                          (*lineptr)[count - 1] = '\0'; 
+                      }
+                  } else {
+                      if (*n != 0) {
+                          **lineptr = '\0'; 
+                      }
+                      ungetc(rc, stream);
+                  }
+                  count = 0;
+                  break;
+              }
+              *lineptr = p;
+              *n = count + 2;
+          }
+          if (rc != '\n') {
+              (*lineptr)[count - 1] = (char)rc;
+          } else {
+              (*lineptr)[count - 1] = '\0'; 
+              break;
+          }
+      }
+      if (rc != EOF || (!feof(stream) && !ferror(stream))) {
+          rc = INT_MAX > count ? count : INT_MAX;
+      } else {
+          if (*n > count) {
+              (*lineptr)[count] = '\0';
+          }
+      }
+      /* return rc; */
+      return count ; /* DED */
+  }
+  
+  /* END get_line.c */
 #+end_src
 
 #+begin_src makefile :tangle makefile
