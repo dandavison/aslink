@@ -63,6 +63,7 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
   #include <assert.h>
   #include <unistd.h>
   #include <stdarg.h>
+  #include "get_line.h"
   
   #define NSTATES 5
   #define NODE_STACK_SIZE 100000
@@ -82,7 +83,7 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
   void usage() ;
   void error(char *fmt, ...) ;
   void *memcpy(void *dest, const void *src, size_t n);
-  ssize_t getline(char **lineptr, size_t *n, FILE *stream);
+  int get_line(char **lineptr, size_t *n, FILE *stream);
   
   void make_new_cluster(char *seq) ;
   void add_to_cluster(char *seq, int k) ;
@@ -131,7 +132,7 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
       malloc_arrays() ;
   
       i = K = 0 ;
-      while( (linelen = getline(&seq, &maxlinelength, stdin)) > 0 ) {
+      while( (linelen = get_line(&seq, &maxlinelength, stdin)) > 0 ) {
           if( (linelen - 1) < seqlen )
               error("Line %d has %d characters (should be at least %d)\n", i+1, linelen-1, seqlen) ;
           
