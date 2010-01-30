@@ -104,7 +104,6 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
   int *cluster, *map, *size ;
   int *iseq ;                    /* integer-encoded sequence */           
   
-  
   int main(int argc, char **argv) {
       char *seq=NULL ;              /* getline automatically mallocs and reallocs seq */
       size_t maxlinelength=0 ;       /* and increments maxlinelength. */
@@ -135,7 +134,7 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
       while( (linelen = get_line(&seq, &maxlinelength, stdin)) > 0 ) {
           if( (linelen - 1) < seqlen )
               error("Line %d has %d characters (should be at least %d)\n", i+1, linelen-1, seqlen) ;
-          
+  
           /* First, check if identical sequence has been seen before. */
           nmiss = encode(seq, seqlen, iseq) ;
           if(nmiss > missing_threshold) cluster[i] = NA ;
@@ -261,8 +260,8 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
           clustermaxseqs[k] = 1 ;
           sequence[k] = (char **) malloc(clustermaxseqs[k] * sizeof(char *)) ;
           for(j = 0 ; j < clustermaxseqs[k] ; ++j)
-          size[k] = 0 ;
               sequence[k][j] = (char *) malloc(seqlen * sizeof(char)) ;
+          size[k] = 0 ;
       }
   }
   
@@ -358,8 +357,6 @@ CAACTCGTTCAAGTCAAATCACTGTTATCAATTTACATCACTGCAAACATCCAACGCCATTAAAATAG
       error("aslink -c numchars -d maxdiff [-n maxmiss]\n") ;
   }
 #+end_src
-  
-*** Makefile
 ***** get_line
 ******* get_line.h
 #+begin_src C :tangle get_line.h
@@ -553,10 +550,10 @@ int get_line(char **lineptr, size_t *n, FILE *stream);
   
   /* END get_line.c */
 #+end_src
-  aslink: get_line.c
-
+*** Makefile
 #+begin_src makefile :tangle makefile
   CFLAGS = -O2 -Wall
+  aslink: get_line.c
   all:    aslink
 #+end_src
 *** Timing
